@@ -1,25 +1,34 @@
 import numpy as np
 
 import mediapipe
-
-import rospy
-from std_msgs.msg import Float64MultiArray
+try:
+    import rospy
+except ModuleNotFoundError:
+    print('Module rospy not found!\n'\
+    'Check packages if you are using MediapipeJointsPublisher')
+try:
+    from std_msgs.msg import Float64MultiArray
+except ModuleNotFoundError:
+    print('Module std_msgs.msg NOT FOUND!\n'\
+    'Check packages if using MediapipeJointsPublisher.'\
+    'Ignore if using MediapipeJoints.')
 
 import ik_teleop.utils.camera as camera
 import ik_teleop.utils.joint_handling as joint_handlers
 
 from hydra import initialize, compose
+import cv2
+import signal
+import sys
+import os
+from datetime import datetime
+
 
 POSE_COORD_TOPIC = '/mediapipe_joint_coords'
 MOVING_AVERAGE_LIMIT = 10
 
 class MediapipeJoints(object):
-    def __init__(self, cfg = None, rotation_angle = 0, moving_average = True, normalize = True):
-        try:
-            rospy.init_node('teleop_camera')
-        except:
-            pass
-
+    def __init__(self, cfg = None, rotation_angle = 0, moving_average = True, normalize = True, cam_serial_num = None, record_demo = False):
         # Getting the configurations
         if cfg is None:
             initialize(config_path = "../parameters/")
@@ -28,7 +37,11 @@ class MediapipeJoints(object):
             self.cfg = cfg
 
         # Creating a realsense pipeline
-        self.pipeline, config = camera.create_realsense_pipeline(self.cfg.realsense.serial_numbers[0], self.cfg.realsense.resolution, self.cfg.realsense.fps)
+        if(cam_serial_num):
+            #TODO use cfg file instead of bypassing
+            self.pipeline, config = camera.create_realsense_pipeline(cam_serial_num, self.cfg.realsense.resolution, self.cfg.realsense.fps)
+        else:
+            self.pipeline, config = camera.create_realsense_pipeline(self.cfg.realsense.serial_numbers[0], self.cfg.realsense.resolution, self.cfg.realsense.fps)
 
         self.pipeline.start(config)
 
@@ -39,11 +52,29 @@ class MediapipeJoints(object):
         self.mediapipe_drawing = mediapipe.solutions.drawing_utils
         self.mediapipe_hands = mediapipe.solutions.hands
 
-        self.publisher = rospy.Publisher(POSE_COORD_TOPIC, Float64MultiArray, queue_size = 1)
-
         self.moving_average = moving_average
         if self.moving_average is True:
             self.moving_average_queue = []
+        self.queue = None
+
+        self.record_demo = record_demo
+        self.vid_file = ''
+        self.unmrkd_file = ''
+
+        if(self.record_demo):
+            t= datetime.now()
+            date_str = t.strftime('%b_%d_%H_%M')
+            self.demo_dir = os.path.join('demos',"demo_{}".format(date_str))
+            if(self.record_demo and not os.path.isdir(self.demo_dir)):
+                os.mkdir(self.demo_dir)
+            self.vid_file = os.path.join(self.demo_dir, 'demo.mp4')
+            self.unmrkd_file = os.path.join(self.demo_dir,'orig.mp4')
+
+        self.unmrkd_images = []
+        self.images = []
+
+        # if sys.argv[1] == "handle_signal":
+        # signal.signal(signal.SIGTERM, self.finish_recording)
 
     def transform_coords(self, wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_coords, mirror_points = True):
         joint_coords = np.vstack([
@@ -86,15 +117,9 @@ class MediapipeJoints(object):
         return transformed_hand_coords[:, :2]
 
     def publish_coords(self, coords):
-        coords_to_publish = Float64MultiArray()
-
-        data = []
-        for coordinate in coords:
-            for ax in coordinate:
-                data.append(float(ax))
-
-        coords_to_publish.data = data
-        self.publisher.publish(coords_to_publish)
+        if(self.queue is not None):
+            self.queue.put(coords)
+        return coords
 
     def detect(self):
         # Setting the mediapipe hand parameters
@@ -121,7 +146,9 @@ class MediapipeJoints(object):
 
                 # If there is a mediapipe hand estimate
                 if estimate.multi_hand_landmarks is not None:  
-
+                    if(self.record_demo):
+                        self.unmrkd_images.append(image)
+                        # self.images.append(image)
                     # Getting the hand coordinate values for the only detected hand
                     hand_landmarks = estimate.multi_hand_landmarks[0]
 
@@ -143,3 +170,37 @@ class MediapipeJoints(object):
                     else:
                         # Publishing the transformed coordinates
                         self.publish_coords(transformed_coords)
+
+    def finish_recording(self):
+        if(self.record_demo):
+            vid_writer = cv2.VideoWriter(self.vid_file,cv2.VideoWriter_fourcc(*'mp4v'), self.cfg.realsense.fps, self.cfg.realsense.resolution)
+            for im in self.images:
+                vid_writer.write(im)
+            vid_writer.release
+
+            uvid_writer = cv2.VideoWriter(self.unmrkd_file,cv2.VideoWriter_fourcc(*'mp4v'), self.cfg.realsense.fps, self.cfg.realsense.resolution)
+            for im in self.unmrkd_images:
+                uvid_writer.write(im)
+            uvid_writer.release()
+            sys.exit(0)
+
+
+class MediapipeJointPublisher(MediapipeJoints):
+    def __init__(self, cfg = None, rotation_angle = 0, moving_average = True, normalize = True):
+        super().__init(cfg,rotation_angle,moving_average,normalize)
+        try:
+            rospy.init_node('teleop_camera')
+        except:
+            pass
+        self.publisher = rospy.Publisher(POSE_COORD_TOPIC, Float64MultiArray, queue_size = 1)
+
+    def publish_coords(self, coords):
+        coords_to_publish = Float64MultiArray()
+
+        data = []
+        for coordinate in coords:
+            for ax in coordinate:
+                data.append(float(ax))
+
+        coords_to_publish.data = data
+        self.publisher.publish(coords_to_publish)

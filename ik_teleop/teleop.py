@@ -6,7 +6,7 @@ from multiprocessing import Process
 import rospy
 from std_msgs.msg import Float64MultiArray
 
-from ik_teleop.teleop_utils.hand_detector import MediapipeJoints
+from ik_teleop.teleop_utils.hand_detector import MediapipeJointPublisher
 from ik_teleop.teleop_utils.dexarm_operation import DexArmOp
 from ik_teleop.teleop_utils.mediapipe_visualizer import PlotMediapipeHand
 
@@ -16,7 +16,7 @@ hand_coordinates = None
 CALIBRATION_FILE_PATH = os.path.join(os.getcwd(), 'bound_data', 'calibrated_values.npy')
 
 def detector():
-    mp_detector = MediapipeJoints()
+    mp_detector = MediapipeJointPublisher()
     mp_detector.detect()
 
 def _callback(hand_coord):
