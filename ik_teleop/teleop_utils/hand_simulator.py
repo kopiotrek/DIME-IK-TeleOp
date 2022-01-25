@@ -12,6 +12,7 @@ import cv2
 from ik_teleop.utils.transformations import perform_persperctive_transformation
 import sys
 import pickle
+import signal
 
 URDF_PATH = "./ik_teleop/urdf_template/allegro_right.urdf"
 
@@ -55,8 +56,8 @@ class HandSimulator:
             }
 
         self.hand_coords = None
-        self.desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
-            0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
+        self.desired_joint_angles = np.array([0, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
+            0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.05, 0.05,0.05,0.05])
 
         with open(allegro_bound_yaml_path, 'r') as file:
             self.allegro_bounds = yaml.safe_load(file)['allegro_bounds']
@@ -64,7 +65,7 @@ class HandSimulator:
         #Used for recording images and states
         self.record_demo = record_demo
         t= datetime.now()
-        date_str = t.strftime('%b_%d_%H_%M')
+        date_str = t.strftime('%b_%d_%H_%M_%S')
 
         self.demo_dir = './demos/throwaway'
         if(demo_dir):
@@ -93,15 +94,19 @@ class HandSimulator:
         self.current_states = []
         if(self.record_demo):
             self.initialize_demo_dict(initial_env)
+        self.write_to_file = False #whether contents have been dumped to file
+        signal.signal(signal.SIGTERM, self.finish_recording)
+        signal.signal(signal.SIGINT, self.finish_recording)
+
 
     def initialize_demo_dict(self, start_state):
         #TODO double check what this means...
         self.demo_dict['terminated'] = True
          #TODO initialize this before first step
         self.demo_dict['init_state_dict']= {}       
-        self.demo_dict['init_state_dict'] = {'desired_orien':self.env.env.desired_orien,
-                                            'qvel':self.env.env.sim.data.qvel,
-                                            'qpos':self.env.env.sim.data.qpos}
+        self.demo_dict['init_state_dict'] = {'desired_orien':self.env.env.desired_orien.copy(),
+                                            'qvel':self.env.env.sim.data.qvel.copy(),
+                                            'qpos':self.env.env.sim.data.qpos.copy()}
 
         self.demo_dict['env_infos'] = {'qvel':None, 'desired_orien':None, 'qpos':None}
         self.demo_dict['observations'] = None
@@ -122,7 +127,7 @@ class HandSimulator:
         qvel = self.env.env.sim.data.qvel
         qvel = np.expand_dims(qvel, 0)
 
-        qpos = obs
+        qpos = copy(self.env.env.sim.data.qpos)
         qpos = np.expand_dims(qpos, 0)
 
         desired_goal = np.expand_dims(env.env.desired_orien,0)
@@ -142,9 +147,9 @@ class HandSimulator:
             self.demo_dict['env_infos']['qpos'] = np.concatenate((self.demo_dict['env_infos']['qpos'], qpos),0)
 
         if (self.demo_dict['observations'] is None):
-            self.demo_dict['observations'] = qpos
+            self.demo_dict['observations'] = obs
         else:
-            self.demo_dict['observations'] = np.concatenate((self.demo_dict['observations'], qpos),0)
+            self.demo_dict['observations'] = np.concatenate((self.demo_dict['observations'], obs),0)
 
         action = np.expand_dims(action, 0)
         if (self.demo_dict['actions'] is None):
@@ -152,20 +157,6 @@ class HandSimulator:
         else:
             self.demo_dict['actions'] = np.concatenate((self.demo_dict['actions'], action),0)
 
-    def finish_recording(self):
-        # vid_writer = cv2.VideoWriter(self.vid_file,cv2.VideoWriter_fourcc(*'mp4v'), self.cfg.realsense.fps, self.cfg.realsense.resolution)
-        # for im in self.images:
-        #     vid_writer.write(im)
-        # vid_writer.release
-
-        uvid_writer = cv2.VideoWriter(self.unmrkd_file,cv2.VideoWriter_fourcc(*'mp4v'), self.cfg.realsense.fps, self.cfg.realsense.resolution)
-        for im in self.unmrkd_images:
-            uvid_writer.write(im)
-        uvid_writer.release()
-
-        file = open(self.pkl_file,'wb')
-        pickle.dump(self.demo_dict, file)
-        sys.exit(0)
 
     def get_finger_tip_data(self):
         finger_tip_coords = {}
@@ -248,25 +239,28 @@ class HandSimulator:
 
         for i in range(10):
             obs,reward, done, info = self.env.step(self.desired_joint_angles)
-        
+            if(self.record_demo):
+                self.add_demo_entry(self.env, self.desired_joint_angles, obs,reward, done, info)
+                self.obs_ctr += 1
         self.env.render()
         
-        if(self.record_demo and self.obs_ctr % self.obs_freq == 0):
-            self.add_demo_entry(self.env, self.desired_joint_angles, obs,reward, done, info)
-        if(self.record_demo and self.obs_ctr % (self.obs_freq * 100) == 0):
-            print('SAVING DEMO...')
-            self.finish_recording()
 
-    def finish_recording(self):
-    #     vid_writer = cv2.VideoWriter(self.vid_file,cv2.VideoWriter_fourcc(*'mp4v'), self.cfg.realsense.fps, self.cfg.realsense.resolution)
-    #     for im in self.images:
-    #         vid_writer.write(im)
-    #     vid_writer.release
+       
+        # if(self.record_demo and self.obs_ctr % (self.obs_freq * 20) == 0):
+        #     print('SAVING DEMO...')
+        #     file = open(self.pkl_file,'wb')
+        #     pickle.dump(self.demo_dict, file)
 
-    #     uvid_writer = cv2.VideoWriter(self.unmrkd_file,cv2.VideoWriter_fourcc(*'mp4v'), self.cfg.realsense.fps, self.cfg.realsense.resolution)
-    #     for im in self.unmrkd_images:
-    #         uvid_writer.write(im)
-    #     uvid_writer.release()
-
-        file = open(self.pkl_file,'wb')
-        pickle.dump(self.demo_dict, file)
+    def finish_recording(self, signum, frame):
+        print("**********ENTERED FINISH RECORDING**********")
+        self.env.env.close()   
+        if(self.record_demo):
+            print('writing to: ' + str(self.pkl_file))
+            print(self.obs_ctr)
+            file = open(self.pkl_file,'wb')
+            pickle.dump(self.demo_dict, file)
+            self.write_to_file = True
+        import glfw
+        glfw.terminate()
+        print("********** DONE WRITING TO PICKLE FILE**********")
+        sys.exit(0)

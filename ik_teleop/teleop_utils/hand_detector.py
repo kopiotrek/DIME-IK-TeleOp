@@ -25,7 +25,7 @@ from datetime import datetime
 
 
 POSE_COORD_TOPIC = '/mediapipe_joint_coords'
-MOVING_AVERAGE_LIMIT = 10
+MOVING_AVERAGE_LIMIT = 3
 
 class MediapipeJoints(object):
     def __init__(self, cfg = None, rotation_angle = 0, moving_average = True, normalize = True, cam_serial_num = None, record_demo = False):
@@ -58,12 +58,13 @@ class MediapipeJoints(object):
         self.queue = None
 
         self.record_demo = record_demo
+        self.done_recording = False
         self.vid_file = ''
         self.unmrkd_file = ''
 
         if(self.record_demo):
             t= datetime.now()
-            date_str = t.strftime('%b_%d_%H_%M')
+            date_str = t.strftime('%b_%d_%H_%M_%S')
             self.demo_dir = os.path.join('demos',"demo_{}".format(date_str))
             if(self.record_demo and not os.path.isdir(self.demo_dir)):
                 os.mkdir(self.demo_dir)
@@ -74,7 +75,8 @@ class MediapipeJoints(object):
         self.images = []
 
         # if sys.argv[1] == "handle_signal":
-        # signal.signal(signal.SIGTERM, self.finish_recording)
+        signal.signal(signal.SIGTERM, self.finish_recording)
+        signal.signal(signal.SIGINT, self.finish_recording)
 
     def transform_coords(self, wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_coords, mirror_points = True):
         joint_coords = np.vstack([
@@ -118,6 +120,8 @@ class MediapipeJoints(object):
 
     def publish_coords(self, coords):
         if(self.queue is not None):
+            if(self.queue.full()):
+                self.queue.get()
             self.queue.put(coords)
         return coords
 
@@ -155,6 +159,7 @@ class MediapipeJoints(object):
                     # Obtaining the joint coordinate estimates from Mediapipe
                     wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions = joint_handlers.get_joint_positions(hand_landmarks, self.cfg.realsense.resolution, self.cfg.mediapipe)
 
+                    print('wrist_position = ' + str(wrist_position))
                     # Transforming the coordinates 
                     transformed_coords = self.transform_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
                     
@@ -171,8 +176,8 @@ class MediapipeJoints(object):
                         # Publishing the transformed coordinates
                         self.publish_coords(transformed_coords)
 
-    def finish_recording(self):
-        if(self.record_demo):
+    def finish_recording(self, signum, frame):
+        if(self.record_demo and len(self.images)>0):
             vid_writer = cv2.VideoWriter(self.vid_file,cv2.VideoWriter_fourcc(*'mp4v'), self.cfg.realsense.fps, self.cfg.realsense.resolution)
             for im in self.images:
                 vid_writer.write(im)
@@ -182,7 +187,8 @@ class MediapipeJoints(object):
             for im in self.unmrkd_images:
                 uvid_writer.write(im)
             uvid_writer.release()
-            sys.exit(0)
+            self.done_recording = True
+        sys.exit(0)
 
 
 class MediapipeJointPublisher(MediapipeJoints):

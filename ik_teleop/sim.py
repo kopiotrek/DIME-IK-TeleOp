@@ -49,24 +49,51 @@ from multiprocessing import Process, Queue
 from ik_teleop.teleop_utils.hand_detector import MediapipeJoints
 from ik_teleop.teleop_utils.mediapipe_visualizer import PlotMediapipeHand
 from ik_teleop.teleop_utils.hand_simulator import HandSimulator
+import time
+import signal
 
 CAM_SERIAL_NUM = '023322062089'
 CALIBRATION_FILE_PATH = os.path.join(os.getcwd(), 'bound_data', 'calibrated_values.npy')
 hand_coordinates = None
+sim = None
+# det_process = None
+# vis_process = None
+# controller_process = None
+
+def graceful_exits(signum, frame):
+    global sim, det_process, vis_process,controller_process
+
+    print("WRAPPING UP DEMO")
+    print("*******Terminating Visualizer*******")
+    vis_process.terminate()
+    if(det_process is not None):
+        # while(det_process.record_demo and not det_process.done_recording):
+        #     time.sleep(5)
+        print("*******Terminating Detector*******")
+        det_process.terminate()
+    if(sim is not None):
+        # while(sim.record_demo and not sim.write_to_file):
+        #     time.sleep(5)
+        print("*******Terminating Simulator*******")
+        controller_process.terminate()
+    sys.exit(0)
+    
+    
 
 def detector(queue, record_demo):
     print('Entered detector!')
-    try:
-        print('record_demo val: ' + str(record_demo))
-        detector = MediapipeJoints(cam_serial_num=CAM_SERIAL_NUM,record_demo=record_demo)
-        detector.queue = queue
-        
-        if(record_demo):
-            demo_dir_q.put(detector.demo_dir)
-        detector.detect()
-    except KeyboardInterrupt:
-        print("ENTERED DETECTOR KEYBOARD INTERRUPT")
-        detector.finish_recording()
+    # try:
+    print('record_demo val: ' + str(record_demo))
+    detector = MediapipeJoints(cam_serial_num=CAM_SERIAL_NUM,record_demo=record_demo)
+    detector.queue = queue
+    
+    if(record_demo):
+        demo_dir_q.put(detector.demo_dir)
+    detector.detect()
+    # except KeyboardInterrupt:
+    #     print("ENTERED DETECTOR KEYBOARD INTERRUPT")
+    #     detector.finish_recording()
+    #     # wrap_up_demo()
 
 def visualizer(queue,hand_coords):
     global HAND_COORD_TOPIC, hand_coordinates
@@ -84,6 +111,8 @@ def visualizer(queue,hand_coords):
             joints = queue.get()
 
         hand_coordinates = joints
+        if(hand_coords.full()):
+            hand_coords.get()
         hand_coords.put(joints)
 
         if hand_coordinates is not None:
@@ -92,55 +121,56 @@ def visualizer(queue,hand_coords):
 
 def robot_simulator(env_name, hand_coords,record_demo):
     # global hand_coordinates
+    global sim
     demo_dirname = None
     if(record_demo):
         demo_dirname = demo_dir_q.get()
         print('DEMO DIR' + str(demo_dirname))
-
+    
+    step_ct = 0
+    # try:
     sim = HandSimulator(env_name=env_name,record_demo=record_demo,demo_dir = demo_dirname)
     while True:
         joints =  hand_coords.get()
         if joints is not None:
             sim.move(joints)
+            step_ct += 1
         else:
             print("joints is none")
+    # except KeyboardInterrupt:
+    #     print("ENTERED SIMULATOR KEYBOARD INTERRUPT")
+    #     wrap_up_demo()
+    #     print("Number of steps:" + str(step_ct))
+    #     sim.finish_recording()
 
 if __name__ == '__main__':
+    global det_process, vis_process,controller_process
     parser = argparse.ArgumentParser(description='Use teleop to operate Mujoco sim')
     parser.add_argument('--record', action='store_true', default=False)
     parser.add_argument('--env_name', type=str, default='block-v3')
     args = parser.parse_args()
     record_demo = args.record
 
-    q = Queue()
-    hand_q = Queue()
+    q = Queue(5)
+    hand_q = Queue(5)
     demo_dir_q = Queue()
 
-    try:
-        print("***************************************************************\n     Starting detection process \n***************************************************************")
-        det_process = Process(target = detector, args=(q,record_demo))
-        det_process.start()
-        print(q.get())
-        print("\nHand detection process started!\n")
+    # try:
+    print("***************************************************************\n     Starting detection process \n***************************************************************")
+    det_process = Process(target = detector, args=(q,record_demo))
+    det_process.start()
+    print(q.get())
+    print("\nHand detection process started!\n")
 
-        print("***************************************************************\n     Starting visualizer process \n***************************************************************")
-        vis_process = Process(target = visualizer, args=(q,hand_q))
-        vis_process.start()
-        print("\nVisualization process started!\n")
+    print("***************************************************************\n     Starting visualizer process \n***************************************************************")
+    vis_process = Process(target = visualizer, args=(q,hand_q))
+    vis_process.start()
+    print("\nVisualization process started!\n")
 
-        print("\n***************************************************************\n     Starting controller process \n***************************************************************")
-        controller_process = Process(target = robot_simulator, args=(args.env_name, hand_q,record_demo,))
-        controller_process.start()
-        print("\Simulator process started!")    
+    print("\n***************************************************************\n     Starting controller process \n***************************************************************")
+    controller_process = Process(target = robot_simulator, args=(args.env_name, hand_q,record_demo,))
+    controller_process.start()
+    print("\Simulator process started!")    
 
-        # det_process.join()
-        # vis_process.join()
-        # controller_process.join()
-    except KeyboardInterrupt:
-        print("ENCOUNTERED KEYBOARD INTERRUPT")
-        det_process.terminate()
-        vis_process.terminate()
-        controller_process.terminate()
-        import sys
-        sys.exit(0)
-    
+    signal.signal(signal.SIGTERM, graceful_exits)
+    signal.signal(signal.SIGINT, graceful_exits)

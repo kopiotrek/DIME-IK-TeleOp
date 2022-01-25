@@ -1,11 +1,15 @@
 import numpy as np
 
 import matplotlib.pyplot as plt
+import signal
+import sys
 
 class PlotMediapipeHand(object):
     def __init__(self, calibration_data = None):
         self.fig = plt.figure()
         self.calibration_data = calibration_data
+        signal.signal(signal.SIGTERM, self.handle_exit)
+        signal.signal(signal.SIGINT, self.handle_exit)
 
     def plot_hand(self, X, Y):
         X, Y = np.array(X).flatten(), np.array(Y).flatten()
@@ -61,3 +65,8 @@ class PlotMediapipeHand(object):
         self.fig.canvas.flush_events()
         plt.pause(0.01)
         plt.cla()
+
+    def handle_exit(self, signum, frame):
+        plt.close('all')
+        print('Exiting Visualizer...')
+        sys.exit(0)
