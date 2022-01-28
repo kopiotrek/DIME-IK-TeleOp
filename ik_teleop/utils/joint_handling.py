@@ -4,6 +4,25 @@ import numpy as np
 # Image based imports
 import cv2
 
+def get_hand_height(hand_landmarks):
+    """ Average the depth positions at 5,9,13,17,1"""
+    avg_depth = hand_landmarks.landmark[5].z
+    avg_depth += hand_landmarks.landmark[9].z
+    avg_depth += hand_landmarks.landmark[13].z
+    avg_depth += hand_landmarks.landmark[17].z
+    avg_depth += hand_landmarks.landmark[1].z
+    return avg_depth/5
+
+def get_finger_tip_heights(palm_height, hand_landmarks, mediapipe_structure):
+    ret_heights = {}
+    for tip in mediapipe_structure.tips.keys():
+        ret_heights[tip] = abs(hand_landmarks.landmark[mediapipe_structure.tips[tip].offset].z)
+    
+    # print('palm_height = ' + str(palm_height))
+    # print('finger tip heights: ' + str(ret_heights))
+    return ret_heights
+
+
 def get_joint_positions(hand_landmarks, resolution, mediapipe_structure, flip = False):
     # Getting the wrist joint position in X and Y pixels 
     if flip is True:
@@ -92,7 +111,10 @@ def get_joint_positions(hand_landmarks, resolution, mediapipe_structure, flip = 
                 int(hand_landmarks.landmark[mediapipe_structure.tips[tip].offset].y * resolution[1])
             ]
 
-        return wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions
+        palm_height = get_hand_height(hand_landmarks)
+        fingertip_hts = get_finger_tip_heights(palm_height, hand_landmarks, mediapipe_structure)
+
+        return wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions, fingertip_hts
 
 def check_hand_position(wrist_position, pinky_knuckle_position, wrist_joint_bound, pinky_knuckle_bound):
     # Checking if the pinky knuckle inside the pinky knuckle contour

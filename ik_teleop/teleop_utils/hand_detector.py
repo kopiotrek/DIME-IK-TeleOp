@@ -78,7 +78,7 @@ class MediapipeJoints(object):
         signal.signal(signal.SIGTERM, self.finish_recording)
         signal.signal(signal.SIGINT, self.finish_recording)
 
-    def transform_coords(self, wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_coords, mirror_points = True):
+    def transform_coords(self, wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_coords, finger_tip_heights, mirror_points = True):
         joint_coords = np.vstack([
             wrist_position, 
             thumb_knuckle_position,
@@ -91,6 +91,7 @@ class MediapipeJoints(object):
 
         # Adding the z values
         z_values = np.zeros((joint_coords.shape[0], 1))
+        
         joint_coords = np.append(joint_coords, z_values, axis = 1)
 
         # Subtract all the coords with the wrist position to ignore the translation
@@ -116,7 +117,36 @@ class MediapipeJoints(object):
             transformed_hand_coords[:, 0] = -transformed_hand_coords[:, 0]
 
         # Returning only the 2D coordinates   
-        return transformed_hand_coords[:, :2]
+        # return transformed_hand_coords[:, :2]
+        # if(len(finger_tip_heights) > 0):
+        #     z_values = np.vstack([
+        #         0, #wrist_position
+        #         0, #thumb_knuckle_position
+        #         0, #index_knuckle_position 
+        #         0, #middle_knuckle_position
+        #         0, #ring_knuckle_position
+        #         0, #pinky_knuckle_position
+        #         finger_tip_heights['thumb'],
+        #         finger_tip_heights['index'],
+        #         finger_tip_heights['middle'],
+        #         finger_tip_heights['ring'],
+        #         finger_tip_heights['pinky']
+        #     ])
+        if(len(finger_tip_heights) > 0):
+            # transformed_hand_coords[0,2] = 0, #wrist_position
+            # transformed_hand_coords[1,2] = 0, #thumb_knuckle_position
+            # transformed_hand_coords[2,2] = 0, #index_knuckle_position 
+            # transformed_hand_coords[3,2] = 0, #middle_knuckle_position
+            # transformed_hand_coords[4,2] = 0, #ring_knuckle_position
+            # transformed_hand_coords[5,2] = 0, #pinky_knuckle_position
+            transformed_hand_coords[6,2] = finger_tip_heights['thumb'] 
+            transformed_hand_coords[7,2] = finger_tip_heights['index']
+            transformed_hand_coords[8,2] = finger_tip_heights['middle']
+            transformed_hand_coords[9,2] = finger_tip_heights['ring']
+            transformed_hand_coords[10,2] = finger_tip_heights['pinky']
+
+
+        return transformed_hand_coords
 
     def publish_coords(self, coords):
         if(self.queue is not None):
@@ -157,12 +187,11 @@ class MediapipeJoints(object):
                     hand_landmarks = estimate.multi_hand_landmarks[0]
 
                     # Obtaining the joint coordinate estimates from Mediapipe
-                    wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions = joint_handlers.get_joint_positions(hand_landmarks, self.cfg.realsense.resolution, self.cfg.mediapipe)
+                    wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions, finger_tip_heights = joint_handlers.get_joint_positions(hand_landmarks, self.cfg.realsense.resolution, self.cfg.mediapipe)
 
-                    print('wrist_position = ' + str(wrist_position))
                     # Transforming the coordinates 
-                    transformed_coords = self.transform_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
-                    
+                    transformed_coords = self.transform_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions, finger_tip_heights)
+
                     if self.moving_average is True:
                         self.moving_average_queue.append(transformed_coords)
 

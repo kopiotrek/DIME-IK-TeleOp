@@ -167,6 +167,7 @@ class HandSimulator:
         return finger_tip_coords
 
     def get_joint_angles(self, finger_tip_coords):
+        print('finger_tip_coords (index)' + str(finger_tip_coords['index'][1]))
         desired_joint_angles = copy(self.desired_joint_angles)
         desired_joint_angles  = self.ik_solver.bounded_linear_finger_motion(
             "index", 
@@ -220,6 +221,7 @@ class HandSimulator:
         return desired_joint_angles
 
     def move(self,coords):
+        print(coords)
         self.hand_coords = coords
         finger_tip_coords = self.get_finger_tip_data()
         self.desired_joint_angles = self.get_joint_angles(finger_tip_coords)
