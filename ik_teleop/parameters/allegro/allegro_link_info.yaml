@@ -1,4 +1,5 @@
 defaults:
+  - _self_
   - allegro_info
   
 #  Finger info

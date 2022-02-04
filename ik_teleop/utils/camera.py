@@ -13,6 +13,15 @@ def create_realsense_pipeline(camera_serial_number, resolution, fps):
 
     return pipeline, config
 
+def create_realsense_rgb_depth_pipeline(camera_serial_number, resolution, fps):
+    pipeline = rs.pipeline()
+    config = rs.config()
+    config.enable_device(camera_serial_number)
+    config.enable_stream(rs.stream.color, resolution[0], resolution[1], rs.format.bgr8, fps)
+    config.enable_stream(rs.stream.depth, resolution[0], resolution[1], rs.format.z16, fps)
+
+    return pipeline, config
+
 def getting_image_data(pipeline):
     # Creating a frame object to get the RGB data
     frames = pipeline.wait_for_frames()
@@ -29,6 +38,21 @@ def getting_image_data(pipeline):
     # Converting the image from BGR to RGB
     image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
     return image
+
+def getting_depth_data(pipeline):
+    # Creating a frame object to get the Depth data
+    frames = pipeline.wait_for_frames()
+    depth_frame = frames.get_depth_frame()
+
+    # Storing the frame data as an image
+    depth_image = np.asanyarray(depth_frame.get_data())
+
+    # Checking if the frame produced an image or not
+    if depth_image is None:
+        print('Ignoring empty camera frame!')
+        return None
+
+    return depth_image
 
 def rotate_image(image, angle):
     if angle == 90:

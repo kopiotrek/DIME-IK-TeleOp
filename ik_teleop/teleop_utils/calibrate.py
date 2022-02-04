@@ -14,7 +14,7 @@ except ModuleNotFoundError:
     print('Module std_msgs.msg NOT FOUND!! '\
     'Check packages if using robot hardware.')
     
-POSE_COORD_TOPIC = '/mediapipe_joint_coords'
+POSE_COORD_TOPIC = '/transformed_mediapipe_joint_coords'
 
 class BoundCalibrator(object):
     def __init__(self, storage_dir = os.getcwd()):

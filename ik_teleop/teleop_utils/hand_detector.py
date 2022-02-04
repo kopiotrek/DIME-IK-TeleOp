@@ -1,6 +1,8 @@
+import time
 import numpy as np
 
 import mediapipe
+
 try:
     import rospy
 except ModuleNotFoundError:
@@ -8,10 +10,16 @@ except ModuleNotFoundError:
     'Check packages if you are using MediapipeJointsPublisher')
 try:
     from std_msgs.msg import Float64MultiArray
+    from sensor_msgs.msg import Image
 except ModuleNotFoundError:
     print('Module std_msgs.msg NOT FOUND!\n'\
     'Check packages if using MediapipeJointsPublisher.'\
     'Ignore if using MediapipeJoints.')
+try:
+    from cv_bridge import CvBridge, CvBridgeError
+except ModuleNotFoundError:
+    print('Module cv_bridge NOT FOUND!\n'\
+    'Check packages if using MediapipeJointsPublisher.')
 
 import ik_teleop.utils.camera as camera
 import ik_teleop.utils.joint_handling as joint_handlers
@@ -24,11 +32,15 @@ import os
 from datetime import datetime
 
 
-POSE_COORD_TOPIC = '/mediapipe_joint_coords'
-MOVING_AVERAGE_LIMIT = 3
+
+ABSOLUTE_POSE_COORD_TOPIC = '/absolute_mediapipe_joint_pixels'
+MEDIAPIPE_RGB_IMG_TOPIC = '/mediapipe_rgb_image'
+TRANFORMED_POSE_COORD_TOPIC = '/transformed_mediapipe_joint_coords'
+MOVING_AVERAGE_LIMIT = 2
 
 class MediapipeJoints(object):
-    def __init__(self, cfg = None, rotation_angle = 0, moving_average = True, normalize = True, cam_serial_num = None, record_demo = False):
+    def __init__(self, display_image = True, cfg = None, rotation_angle = 0, moving_average = True, normalize = True, cam_serial_num = None, record_demo = False):
+
         # Getting the configurations
         if cfg is None:
             initialize(config_path = "../parameters/")
@@ -52,6 +64,9 @@ class MediapipeJoints(object):
         self.mediapipe_drawing = mediapipe.solutions.drawing_utils
         self.mediapipe_hands = mediapipe.solutions.hands
 
+
+        self.display_image = display_image
+        
         self.moving_average = moving_average
         if self.moving_average is True:
             self.moving_average_queue = []
@@ -125,6 +140,24 @@ class MediapipeJoints(object):
             self.queue.put(coords)
         return coords
 
+    def get_absolute_coords(self, wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_coords, mirror_points = False):
+        joint_coords = np.vstack([
+            wrist_position, 
+            thumb_knuckle_position,
+            index_knuckle_position, 
+            middle_knuckle_position, 
+            ring_knuckle_position,
+            pinky_knuckle_position, 
+            np.array([finger_tip_coords[key] for key in finger_tip_coords.keys()])
+        ])
+
+        if mirror_points is True:
+            joint_coords[:, 0] = self.cfg.realsense.resolution[0] - joint_coords[:, 0]
+
+        return joint_coords
+
+
+
     def detect(self):
         # Setting the mediapipe hand parameters
         with self.mediapipe_hands.Hands(
@@ -133,20 +166,22 @@ class MediapipeJoints(object):
             min_tracking_confidence = 0.95) as hand:
 
             while True:
-                # Getting the image to process
-                image = camera.getting_image_data(self.pipeline)
+                start = time.time()
 
-                if image is None:
+                # Getting the image to process
+                rgb_image = camera.getting_image_data(self.pipeline)
+
+                if rgb_image is None:
                     print('Did not receive an image. Please wait!')
                     continue
 
                 # Rotate image if needed
                 if self.rotation_angle != 0:
-                    image = camera.rotate_image(image, self.rotation_angle)
+                    rgb_image = camera.rotate_image(rgb_image, self.rotation_angle)
     
                 # Getting the hand pose results out of the image
-                image.flags.writeable = False
-                estimate = hand.process(image)
+                rgb_image.flags.writeable = False
+                estimate = hand.process(rgb_image)
 
                 # If there is a mediapipe hand estimate
                 if estimate.multi_hand_landmarks is not None:  
@@ -163,6 +198,10 @@ class MediapipeJoints(object):
                     # Transforming the coordinates 
                     transformed_coords = self.transform_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
                     
+                    # Also getting the absolute coordinates
+                    absolute_coordinates = self.get_absolute_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
+                    self.publish_coords(absolute_coordinates)
+
                     if self.moving_average is True:
                         self.moving_average_queue.append(transformed_coords)
 
@@ -171,6 +210,7 @@ class MediapipeJoints(object):
 
                         mean_transformed_value = np.mean(self.moving_average_queue, axis = 0)
                         self.publish_coords(mean_transformed_value)
+
 
                     else:
                         # Publishing the transformed coordinates
@@ -198,9 +238,25 @@ class MediapipeJointPublisher(MediapipeJoints):
             rospy.init_node('teleop_camera')
         except:
             pass
-        self.publisher = rospy.Publisher(POSE_COORD_TOPIC, Float64MultiArray, queue_size = 1)
+        
+        self.absolute_coord_publisher = rospy.Publisher(ABSOLUTE_POSE_COORD_TOPIC, Float64MultiArray, queue_size = 1)
+        self.trans_coord_publisher = rospy.Publisher(TRANFORMED_POSE_COORD_TOPIC, Float64MultiArray, queue_size = 1)
 
-    def publish_coords(self, coords):
+        self.rgb_image_publisher = rospy.Publisher(MEDIAPIPE_RGB_IMG_TOPIC, Image, queue_size = 1)
+
+        self.bridge = CvBridge()
+
+    # def publish_coords(self, coords):
+    #     coords_to_publish = Float64MultiArray()
+
+    #     data = []
+    #     for coordinate in coords:
+    #         for ax in coordinate:
+    #             data.append(float(ax))
+
+    #     coords_to_publish.data = data
+    #     self.publisher.publish(coords_to_publish)
+    def publish_transformed_coords(self, coords):
         coords_to_publish = Float64MultiArray()
 
         data = []
@@ -209,4 +265,92 @@ class MediapipeJointPublisher(MediapipeJoints):
                 data.append(float(ax))
 
         coords_to_publish.data = data
-        self.publisher.publish(coords_to_publish)
+        self.trans_coord_publisher.publish(coords_to_publish)
+
+    def publish_absolute_coords(self, coords):
+        coords_to_publish = Float64MultiArray()
+
+        data = []
+        for coordinate in coords:
+            for ax in coordinate:
+                data.append(float(ax))
+
+        coords_to_publish.data = data
+        self.absolute_coord_publisher.publish(coords_to_publish)
+
+    def publish_rgb_image(self, rgb_image):
+        try:
+            rgb_image = self.bridge.cv2_to_imgmsg(rgb_image, "bgr8")
+        except CvBridgeError as e:
+            print(e)
+
+        self.rgb_image_publisher.publish(rgb_image)
+
+    def detect(self):
+        # Setting the mediapipe hand parameters
+        with self.mediapipe_hands.Hands(
+            max_num_hands = 1, # Limiting the number of hands detected in the image to 1
+            min_detection_confidence = 0.95,
+            min_tracking_confidence = 0.95) as hand:
+
+            while True:
+                start = time.time()
+
+                # Getting the image to process
+                rgb_image = camera.getting_image_data(self.pipeline)
+
+                if rgb_image is None:
+                    print('Did not receive an image. Please wait!')
+                    continue
+
+                # Rotate image if needed
+                if self.rotation_angle != 0:
+                    rgb_image = camera.rotate_image(rgb_image, self.rotation_angle)
+    
+                # Getting the hand pose results out of the image
+                rgb_image.flags.writeable = False
+                estimate = hand.process(rgb_image)
+
+                # If there is a mediapipe hand estimate
+                if estimate.multi_hand_landmarks is not None:  
+                    if(self.record_demo):
+                        self.unmrkd_images.append(image)
+                        # self.images.append(image)
+                    # Getting the hand coordinate values for the only detected hand
+                    hand_landmarks = estimate.multi_hand_landmarks[0]
+
+                    # Obtaining the joint coordinate estimates from Mediapipe
+                    wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions = joint_handlers.get_joint_positions(hand_landmarks, self.cfg.realsense.resolution, self.cfg.mediapipe)
+
+                    # print('wrist_position = ' + str(wrist_position))
+                    # Transforming the coordinates 
+                    transformed_coords = self.transform_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
+                    
+                    # Also getting the absolute coordinates
+                    absolute_coordinates = self.get_absolute_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
+                    self.publish_absolute_coords(absolute_coordinates)
+
+                    if self.moving_average is True:
+                        self.moving_average_queue.append(transformed_coords)
+
+                        if len(self.moving_average_queue) > MOVING_AVERAGE_LIMIT:
+                            self.moving_average_queue.pop(0)
+
+                        mean_transformed_value = np.mean(self.moving_average_queue, axis = 0)
+                        self.publish_transformed_coords(mean_transformed_value)
+
+
+                    else:
+                        # Publishing the transformed coordinates
+                        self.publish_transformed_coords(transformed_coords)
+
+                    # Publishing the rgb and depth image data
+                    rgb_img_pub_start_time = time.time()
+                    self.publish_rgb_image(rgb_image)
+                    rgb_img_pub_end_time = time.time()
+
+                if self.display_image:
+
+                    cv2.imshow('MediaPipe Hands', cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB))
+                    if cv2.waitKey(5) & 0xFF == 27:
+                        break

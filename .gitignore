@@ -1,5 +1,6 @@
 *.pyc
 __pycache__/*
+ik_teleop.egg-info/*
 ik_teleop/thumb_debugging_files/debug_data/*
 ik_teleop/thumb_debugging_files/__pycache__/*
 ik_teleop/coordinate_data/*
@@ -9,6 +10,8 @@ ik_teleop/teleop_utils/__pycache__/*
 ik_teleop/core/__pycache__/*
 ik_teleop/__pycache__/*
 ik_teleop/log/*
+
+ik_teleop/bound_data/*
 
 # Removing temporary scripts
 ik_teleop/temp_script.py

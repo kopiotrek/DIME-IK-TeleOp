@@ -42,19 +42,20 @@ class AllegroIKController (object):
     def bounded_finger_motion(self, finger_type, coordinate, moving_average_array, current_angles):
         # Initializing a seed from the current angles
         current_finger_angles = np.array(current_angles[self.fingers[finger_type].offset : self.fingers[finger_type].offset + self.cfg.joints_per_finger])
-        # Calculating the angles using the inverse kinematics function
-        calculated_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, coordinate, current_finger_angles)
 
-        # calculating the moving average
-        moving_average_array.append(copy(calculated_angles))
+        # Calculate the moving average on the coordinates
+        moving_average_array.append(copy(coordinate))
 
         if len(moving_average_array) > self.cfg.time_steps:
             moving_average_array.pop(0)
 
-        averaged_finger_angles = np.mean(np.array(moving_average_array), 0)
+        averaged_finger_tip_coords = np.mean(np.array(moving_average_array), 0)
+
+        # Calculating the angles using the inverse kinematics function
+        calculated_average_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, averaged_finger_tip_coords, current_finger_angles)
 
         # Calculating the angle change
-        calculated_angle_change = np.array(averaged_finger_angles) - np.array(current_finger_angles)
+        calculated_angle_change = np.array(calculated_average_angles) - np.array(current_finger_angles)
 
         # Bounding the corresponding angle changes
         finger_bounds = np.array(self.joint_bounds[self.fingers[finger_type].offset : self.fingers[finger_type].offset + self.cfg.joints_per_finger])
@@ -75,20 +76,20 @@ class AllegroIKController (object):
         target_z_val = (z_val - z_bound_array[0]) * ((target_z_bound_array[-1] - target_z_bound_array[0])/(z_bound_array[-1] - z_bound_array[0])) + target_z_bound_array[0]
 
         target_coordinate = [x_val, y_val, target_z_val]
-
-        # Calculating the desired angle based on the target coordinate using the inverse kinematics function
-        calculated_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, target_coordinate, current_finger_angles)
-
+        
         # calculating the moving average
-        moving_average_array.append(copy(calculated_angles))
+        moving_average_array.append(copy(target_coordinate))
 
         if len(moving_average_array) > self.time_steps:
             moving_average_array.pop(0)
 
-        averaged_finger_angles = np.mean(np.array(moving_average_array), 0)
+        averaged_finger_coordinate = np.mean(np.array(moving_average_array), 0)
+        
+        # Calculating the desired angle based on the target coordinate using the inverse kinematics function
+        calculated_average_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, averaged_finger_coordinate, current_finger_angles)
 
         # Calculating the angle change
-        calculated_angle_change = np.array(averaged_finger_angles) - np.array(current_finger_angles)
+        calculated_angle_change = np.array(calculated_average_angles) - np.array(current_finger_angles)
 
         # Bounding the corresponding angle changes
         finger_bounds = np.array(self.joint_bounds[self.fingers[finger_type].offset : self.fingers[finger_type].offset + self.cfg.joints_per_finger])
@@ -112,19 +113,20 @@ class AllegroIKController (object):
 
         target_coordinate = [x_val, target_y_val, target_z_val]
 
-        # Calculating the desired angle based on the target coordinate using the inverse kinematics function
-        calculated_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, target_coordinate, current_finger_angles)
-
-        # calculating the moving average
-        moving_average_array.append(copy(calculated_angles))
+        # Calculating the moving average
+        moving_average_array.append(copy(target_coordinate))
 
         if len(moving_average_array) > self.time_steps:
             moving_average_array.pop(0)
 
-        averaged_finger_angles = np.mean(np.array(moving_average_array), 0)
+        averaged_finger_coordinate = np.mean(np.array(moving_average_array), 0)
+
+
+        # Calculating the desired angle based on the target coordinate using the inverse kinematics function
+        calculated_average_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, averaged_finger_coordinate, current_finger_angles)
 
         # Calculating the angle change
-        calculated_angle_change = np.array(averaged_finger_angles) - np.array(current_finger_angles)
+        calculated_angle_change = np.array(calculated_average_angles) - np.array(current_finger_angles)
 
         # Bounding the corresponding angle changes
         finger_bounds = np.array(self.joint_bounds[self.fingers[finger_type].offset : self.fingers[finger_type].offset + self.cfg.joints_per_finger])
@@ -143,7 +145,7 @@ class AllegroIKController (object):
         # Finding the desired angles for each finger using the given coordinates
         desired_angles = copy(current_angles)
         for idx, finger in enumerate(self.fingers.keys()):
-            desired_angles = self.bounded_finger_motion(finger, coordinate[idx], moving_average_arrays[idx], desired_angles)
+            desired_angles = self.bounded_finger_motion(finger, coordinate_array[idx], moving_average_arrays[idx], desired_angles)
 
         return desired_angles
 
@@ -151,22 +153,22 @@ class AllegroIKController (object):
         # Initializing a seed from the current angles
         seed = np.array(current_angles[self.fingers[finger_type].offset : self.fingers[finger_type].offset + self.cfg.joints_per_finger])
 
-        # Calculating the angles using the inverse kinematics function
-        calculated_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, coordinate, seed)
-
-        # calculating the moving average
-        moving_average_array.append(copy(calculated_angles))
+        # Calculating the moving average
+        moving_average_array.append(copy(coordinate))
 
         if len(moving_average_array) > self.cfg.time_steps:
             moving_average_array.pop(0)
 
-        averaged_finger_angles = np.mean(np.array(moving_average_array), 0)
+        averaged_finger_coordinate = np.mean(np.array(moving_average_array), 0)
+
+        # Calculating the angles using the inverse kinematics function
+        calculated_average_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, averaged_finger_coordinate, seed)
 
         # Updating the angle changes in the final angle array
         desired_angles = copy(current_angles)
 
         for idx in range(self.cfg.joints_per_finger):
-            desired_angles[self.fingers[finger_type].offset + idx] = averaged_finger_angles[idx]
+            desired_angles[self.fingers[finger_type].offset + idx] = calculated_average_angles[idx]
 
         return desired_angles
 
@@ -180,22 +182,22 @@ class AllegroIKController (object):
 
         target_coordinate = [x_val, target_y_val, target_z_val]
 
-        # Calculating the desired angle based on the target coordinate using the inverse kinematics function
-        calculated_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, target_coordinate, current_finger_angles)
-
-        # calculating the moving average
-        moving_average_array.append(copy(calculated_angles))
+        # Calculating the moving average
+        moving_average_array.append(copy(target_coordinate))
 
         if len(moving_average_array) > self.cfg.time_steps:
             moving_average_array.pop(0)
 
-        averaged_finger_angles = np.mean(np.array(moving_average_array), 0)
+        averaged_finger_coordinate = np.mean(np.array(moving_average_array), 0)
+
+        # Calculating the desired angle based on the target coordinate using the inverse kinematics function
+        calculated_average_angles = self.allegro_ik.finger_inverse_kinematics(finger_type, averaged_finger_coordinate, current_finger_angles)
 
         # Updating the angle changes in the final angle array
         desired_angles = copy(current_angles)
 
         for idx in range(self.cfg.joints_per_finger):
-            desired_angles[self.fingers[finger_type].offset + idx] = averaged_finger_angles[idx]
+            desired_angles[self.fingers[finger_type].offset + idx] = calculated_average_angles[idx]
 
         return desired_angles
 
@@ -208,7 +210,7 @@ class AllegroIKController (object):
         # Finding the desired angles for each finger using the given coordinates
         desired_angles = copy(current_angles)
         for idx, finger in enumerate(self.fingers.keys()):
-            desired_angles = self.direct_finger_motion(finger, coordinate[idx], moving_average_arrays[idx], desired_angles)
+            desired_angles = self.direct_finger_motion(finger, coordinate_array[idx], moving_average_arrays[idx], desired_angles)
 
         return desired_angles
 
