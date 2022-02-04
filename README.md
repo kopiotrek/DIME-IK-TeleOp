@@ -13,6 +13,10 @@ python3 teleop.py
 
 - To run the simulation teleop:
 ```
-cd <path-to-this-repository>/ik_teleop
-python3 sim.py
+cd <path-to-this-repository>
+python3 ./ik_teleop/sim.py
 ```
+
+- If recording demonstrations without ros/rospy and in simulation:
+    python teleop_utils/calibrate.py
+

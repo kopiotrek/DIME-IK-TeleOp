@@ -53,7 +53,7 @@ import time
 import signal
 
 CAM_SERIAL_NUM = '023322062089'
-CALIBRATION_FILE_PATH = os.path.join(os.getcwd(), 'bound_data', 'calibrated_values.npy')
+CALIBRATION_FILE_PATH = os.path.join(os.getcwd(),'ik_teleop', 'bound_data', 'calibrated_values.npy')
 hand_coordinates = None
 sim = None
 # det_process = None

@@ -5,7 +5,7 @@ import mj_allegro_envs
 from datetime import datetime
 import os
 from ik_teleop.ik_core.allegro_controller import AllegroIKController
-# from ik_teleop.teleop_utils.calibrate import BoundCalibrator
+from ik_teleop.teleop_utils.calibrate import BoundCalibrator
 from copy import deepcopy as copy
 import numpy as np
 import cv2
@@ -56,8 +56,12 @@ class HandSimulator:
             }
 
         self.hand_coords = None
+        # Used for recording demos of flipping rectangle env
+        # self.desired_joint_angles = np.array([0, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
+        #     0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.05, 0.05,0.05,0.05])
+
         self.desired_joint_angles = np.array([0, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
-            0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.05, 0.05,0.05,0.05])
+            0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.2, 0.2,0.2,0.2])
 
         with open(allegro_bound_yaml_path, 'r') as file:
             self.allegro_bounds = yaml.safe_load(file)['allegro_bounds']
@@ -145,11 +149,13 @@ class HandSimulator:
             self.demo_dict['env_infos']['qpos'] = qpos
         else:
             self.demo_dict['env_infos']['qpos'] = np.concatenate((self.demo_dict['env_infos']['qpos'], qpos),0)
+            print('env_info shape: ' + str(self.demo_dict['env_infos']['env_infos'].shape))
+
 
         if (self.demo_dict['observations'] is None):
-            self.demo_dict['observations'] = obs
+            self.demo_dict['observations'] = np.expand_dims(obs,-1)
         else:
-            self.demo_dict['observations'] = np.concatenate((self.demo_dict['observations'], obs),0)
+            self.demo_dict['observations'] = np.concatenate((self.demo_dict['observations'], np.expand_dims(obs,-1)),1)
 
         action = np.expand_dims(action, 0)
         if (self.demo_dict['actions'] is None):

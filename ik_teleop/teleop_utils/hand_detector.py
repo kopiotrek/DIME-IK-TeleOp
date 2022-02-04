@@ -159,7 +159,7 @@ class MediapipeJoints(object):
                     # Obtaining the joint coordinate estimates from Mediapipe
                     wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions = joint_handlers.get_joint_positions(hand_landmarks, self.cfg.realsense.resolution, self.cfg.mediapipe)
 
-                    print('wrist_position = ' + str(wrist_position))
+                    # print('wrist_position = ' + str(wrist_position))
                     # Transforming the coordinates 
                     transformed_coords = self.transform_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
                     
