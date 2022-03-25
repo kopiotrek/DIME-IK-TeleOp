@@ -2,6 +2,8 @@
 This repository is part of the official implementation of [DIME](https://arxiv.org/abs/2203.13251). It contains the package for performing TeleOp using an Allegro Hand attached to a Kinova Arm.
 
 ## Setup instructions
+- Setup the [ar-tracker-alvar](http://wiki.ros.org/ar_track_alvar) and [Realsense ROS](https://github.com/IntelRealSense/realsense-ros) packages before using this package.
+- Also install the [`librealsense`](https://github.com/IntelRealSense/librealsense#installation-guide) SDK with the appropriate python wrapper.
 - Clone the repository and use the following command to install the package:
 ```
 pip3 install -e .
