@@ -1,4 +1,7 @@
-# Setup instructions
+# DIME Inverse Kinematics Based Tele-Operation
+This repository is part of the official implementation of [DIME](https://arxiv.org/abs/2203.13251). It contains the package for performing TeleOp using an Allegro Hand attached to a Kinova Arm.
+
+## Setup instructions
 - Clone the repository and use the following command to install the package:
 ```
 pip3 install -e .
@@ -15,4 +18,16 @@ python3 teleop.py
 ```
 cd <path-to-this-repository>/ik_teleop
 python3 sim.py
+```
+
+## Citation
+
+If you use this repo in your research, please consider citing the paper as follows:
+```
+@article{arunachalam2022dime,
+  title={Dexterous Imitation Made Easy: A Learning-Based Framework for Efficient Dexterous Manipulation},
+  author={Sridhar Pandian Arunachalam and Sneha Silwal and Ben Evans and Lerrel Pinto},
+  journal={arXiv preprint arXiv:2203.13251},
+  year={2022}
+}
 ```
