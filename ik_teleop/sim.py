@@ -49,7 +49,10 @@ class TeleOpSim (object):
             self.cfg = cfg
 
         # self.env = gym.make('AllegroManipulateBlockRotateZPalm-v0')
-        self.env = GymEnv('block-v0')
+
+# WAS: self.env = GymEnv('block-v0')
+        self.env = GymEnv('block-v3')
+
         initial_env = self.env.reset()
 
         #self.desired_angles = np.ones(16)*0.6
@@ -369,7 +372,7 @@ if __name__ == '__main__':
     parser.add_argument('--headless', type=bool, default=False)
     args = parser.parse_args()
 
-    teleop = TeleOpSim(args.record, args.headless, rotation_angle = 180)
+    teleop = TeleOpSim(args.record, args.headless, rotation_angle = 0)
     # embed()
     try:
         teleop.hand_movement_processor()
