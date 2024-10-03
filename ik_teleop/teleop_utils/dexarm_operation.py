@@ -2,6 +2,7 @@ import os
 import cv2
 import numpy as np
 import yaml
+import sys
 
 import rospy
 from std_msgs.msg import Float64MultiArray
@@ -14,6 +15,7 @@ from ik_teleop.teleop_utils.calibrate import BoundCalibrator
 
 from ik_teleop.utils.transformations import perform_persperctive_transformation
 
+sys.path.insert(1, '../../DIME-Controllers')
 from move_dexarm import DexArmControl
 
 from copy import deepcopy as copy
@@ -21,7 +23,7 @@ from copy import deepcopy as copy
 HAND_COORD_TOPIC = '/transformed_mediapipe_joint_coords'
 CURR_JOINT_STATE_TOPIC = '/allegroHand/joint_states'
 
-URDF_PATH = "/home/sridhar/dexterous_arm/ik_stuff/ik_teleop/urdf_template/allegro_right.urdf"
+URDF_PATH = "/home/vm/rpl/DIME-IK-TeleOp/ik_teleop/urdf_template/allegro_right.urdf"
 
 TRANS_HAND_TIPS = {
     'thumb': 6,
@@ -65,7 +67,7 @@ class DexArmOp(object):
         # Arm controller initialization
         self.arm_controller = DexArmControl()
 
-        # Moving robot to home position
+        # Moving robot to home position 
         self.arm_controller.home_robot()
 
         self.moving_average_queues = {
@@ -102,7 +104,7 @@ class DexArmOp(object):
             if self.hand_coords is not None and self.current_joint_state is not None:
                 finger_tip_coords = self.get_finger_tip_data()
                 desired_joint_angles = copy(self.current_joint_state)
-
+                
                 # Movement for index finger
                 desired_joint_angles = self.ik_solver.bounded_linear_finger_motion(
                     "index", 
@@ -140,6 +142,7 @@ class DexArmOp(object):
                     self.moving_average_queues['ring'], 
                     desired_joint_angles
                 )
+                print('TMP4')
 
                 # Movement for the Thumb
                 if cv2.pointPolygonTest(np.float32(self.calibrated_bounds[4:]), np.float32(finger_tip_coords['thumb'][:2]), False) > -1:
@@ -156,6 +159,7 @@ class DexArmOp(object):
                         self.moving_average_queues['thumb'],
                         desired_joint_angles
                     )
+                print('TMP5 (publishing)')
 
                 # Publishing the required joint angles
                 self.arm_controller.move_hand(desired_joint_angles)

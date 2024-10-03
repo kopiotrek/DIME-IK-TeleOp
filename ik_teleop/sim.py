@@ -64,7 +64,7 @@ class TeleOpSim (object):
         
         # Creating a realsense pipeline
         # for cam in self.cfg.realsense.serial_numbers:
-        self.pipeline, config = camera.create_realsense_pipeline(self.cfg.realsense.serial_numbers[3], self.cfg.realsense.resolution, self.cfg.realsense.fps)
+        self.pipeline, config = camera.create_realsense_pipeline(self.cfg.realsense.serial_numbers[0], self.cfg.realsense.resolution, self.cfg.realsense.fps)
         print(config)
         self.pipeline.start(config)
 

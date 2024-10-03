@@ -66,7 +66,6 @@ class AllegroIKController (object):
 
         for idx in range(self.cfg.joints_per_finger):
             desired_angles[self.fingers[finger_type].offset + idx] += clipped_angle_changes[idx]
-
         return desired_angles
 
     def bounded_linear_finger_motion(self, finger_type, x_val, y_val, z_val, z_bound_array, target_z_bound_array, moving_average_array, current_angles):
