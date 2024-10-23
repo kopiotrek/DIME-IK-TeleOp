@@ -1,213 +1,222 @@
-import time
+import cv2 as cv
+import mediapipe as mp
+import matplotlib.pyplot as plt
 import numpy as np
-
-import mediapipe
-
-import cv2
-
 import rospy
+import time
+from utils import DLT, get_projection_matrix, write_keypoints_to_disk
 from std_msgs.msg import Float64MultiArray
-from sensor_msgs.msg import Image
-from cv_bridge import CvBridge, CvBridgeError
 
-import ik_teleop.utils.camera as camera
-import ik_teleop.utils.joint_handling as joint_handlers
+mp_drawing = mp.solutions.drawing_utils
+mp_hands = mp.solutions.hands
 
-from hydra import initialize, compose
+frame_shape = [480, 640]
 
-ABSOLUTE_POSE_COORD_TOPIC = '/absolute_mediapipe_joint_pixels'
-MEDIAPIPE_RGB_IMG_TOPIC = '/mediapipe_rgb_image'
-TRANFORMED_POSE_COORD_TOPIC = '/transformed_mediapipe_joint_coords'
-
-MOVING_AVERAGE_LIMIT = 2
-
-class MediapipeJoints(object):
-    def __init__(self, display_image = True, cfg = None, rotation_angle = 0, moving_average = True, normalize = True):
+class HandJointStatePublisher:
+    def __init__(self):
         try:
-            rospy.init_node('teleop_camera')
-        except:
+            rospy.init_node('hand_joint_state_publisher', anonymous=True)
+        except rospy.ROSInterruptException:
             pass
+        
+        self.pub = rospy.Publisher('hand_coords', Float64MultiArray, queue_size=1)
+        self.fingers = [
+            [[0, 17], [17, 18], [18, 19], [19, 20]],  # Pinkie
+            [[0, 13], [13, 14], [14, 15], [15, 16]],  # Ring
+            [[0, 9], [9, 10], [10, 11], [11, 12]],    # Middle
+            [[0, 5], [5, 6], [6, 7], [7, 8]],         # Index
+            [[0, 1], [1, 2], [2, 3], [3, 4]]          # Thumb
+        ]
+        self.fingers_colors = ['red', 'blue', 'green', 'black', 'orange']
+        self.Rz = np.array([[0., -1., 0.], [1., 0., 0.], [0., 0., 1.]])
+        self.Rx = np.array([[1., 0., 0.], [0., -1., 0.], [0., 0., -1.]])
+        
+        self.fig = plt.figure()
+        self.ax = self.fig.add_subplot(111, projection='3d')
+        plt.ion()  # Enable interactive mode
+        self.setup_plot()
+        
+    def setup_plot(self):
+        self.ax.set_xticks([])
+        self.ax.set_yticks([])
+        self.ax.set_zticks([])
+        self.ax.set_xlim3d(0, 20)
+        self.ax.set_ylim3d(-30, -10)
+        self.ax.set_zlim3d(-30, -10)
+        self.ax.set_xlabel('x')
+        self.ax.set_ylabel('y')
+        self.ax.set_zlabel('z')
+        # Static plot elements
+        self.ax.plot([0, 5], [0, 0], [0, 0], linewidth=2, color='red')
+        self.ax.plot([0, 0], [0, 5], [0, 0], linewidth=2, color='blue')
+        self.ax.plot([0, 0], [0, 0], [0, 5], linewidth=2, color='black')
 
-        # Getting the configurations
-        if cfg is None:
-            initialize(config_path = "../parameters/")
-            self.cfg = compose(config_name = "teleop")
-        else:
-            self.cfg = cfg
+    def visualize_3d(self, kpts3d):
+        """Visualize the keypoints for a single frame."""
+        kpts3d_rotated = np.array([self.Rz @ self.Rx @ kpt for kpt in kpts3d])
 
-        # Creating a realsense pipeline
-        self.pipeline, config = camera.create_realsense_rgb_depth_pipeline(self.cfg.realsense.serial_numbers[0], self.cfg.realsense.resolution, self.cfg.realsense.fps)
+        # Clear plot axes for each frame and replot
+        self.ax.cla()
+        self.setup_plot()
 
-        self.pipeline.start(config)
-
-        self.rotation_angle = rotation_angle
-        self.normalize = normalize
-
-        # Creating mediapipe objects
-        self.mediapipe_drawing = mediapipe.solutions.drawing_utils
-        self.mediapipe_hands = mediapipe.solutions.hands
-
-        self.absolute_coord_publisher = rospy.Publisher(ABSOLUTE_POSE_COORD_TOPIC, Float64MultiArray, queue_size = 1)
-        self.trans_coord_publisher = rospy.Publisher(TRANFORMED_POSE_COORD_TOPIC, Float64MultiArray, queue_size = 1)
-
-        self.rgb_image_publisher = rospy.Publisher(MEDIAPIPE_RGB_IMG_TOPIC, Image, queue_size = 1)
-
-        self.bridge = CvBridge()
-
-        self.display_image = display_image
-
-        self.moving_average = moving_average
-        if self.moving_average is True:
-            self.moving_average_queue = []
-
-    def transform_coords(self, wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_coords, mirror_points = True):
-        joint_coords = np.vstack([
-            wrist_position, 
-            thumb_knuckle_position,
-            index_knuckle_position, 
-            middle_knuckle_position, 
-            ring_knuckle_position,
-            pinky_knuckle_position, 
-            np.array([finger_tip_coords[key] for key in finger_tip_coords.keys()])
-        ])
-
-        # Adding the z values
-        z_values = np.zeros((joint_coords.shape[0], 1))
-        joint_coords = np.append(joint_coords, z_values, axis = 1)
-
-        # Subtract all the coords with the wrist position to ignore the translation
-        translated_joint_coords = joint_coords - joint_coords[0]
-
-        # Finding the 3D direction vector and getting the cross product for X axis
-        if self.normalize is True:
-            direction_vector = translated_joint_coords[3]
-            normal_vector = np.array([0, 0, np.linalg.norm(translated_joint_coords[3])])
-            cross_product = np.cross(direction_vector / np.linalg.norm(translated_joint_coords[3]), normal_vector / np.linalg.norm(translated_joint_coords[3])) * np.linalg.norm(translated_joint_coords[3])
-        else:
-            direction_vector = translated_joint_coords[3] / np.linalg.norm(translated_joint_coords[3])
-            normal_vector = np.array([0, 0, 1])
-            cross_product = np.cross(direction_vector, normal_vector)
-
-        original_coord_frame = [cross_product, direction_vector, normal_vector]
-
-        # Finding the translation matrix to rotate the values
-        rotation_matrix = np.linalg.solve(original_coord_frame, np.eye(3)).T
-        transformed_hand_coords = (rotation_matrix @ translated_joint_coords.T).T
-
-        if mirror_points is True:
-            transformed_hand_coords[:, 0] = -transformed_hand_coords[:, 0]
-
-        # Returning only the 2D coordinates   
-        return transformed_hand_coords[:, :2]
-
-    def get_absolute_coords(self, wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_coords, mirror_points = False):
-        joint_coords = np.vstack([
-            wrist_position, 
-            thumb_knuckle_position,
-            index_knuckle_position, 
-            middle_knuckle_position, 
-            ring_knuckle_position,
-            pinky_knuckle_position, 
-            np.array([finger_tip_coords[key] for key in finger_tip_coords.keys()])
-        ])
-
-        if mirror_points is True:
-            joint_coords[:, 0] = self.cfg.realsense.resolution[0] - joint_coords[:, 0]
-
-        return joint_coords
-
-    def publish_transformed_coords(self, coords):
-        coords_to_publish = Float64MultiArray()
-
-        data = []
-        for coordinate in coords:
-            for ax in coordinate:
-                data.append(float(ax))
-
-        coords_to_publish.data = data
-        self.trans_coord_publisher.publish(coords_to_publish)
-
-    def publish_absolute_coords(self, coords):
-        coords_to_publish = Float64MultiArray()
-
-        data = []
-        for coordinate in coords:
-            for ax in coordinate:
-                data.append(float(ax))
-
-        coords_to_publish.data = data
-        self.absolute_coord_publisher.publish(coords_to_publish)
-
-    def publish_rgb_image(self, rgb_image):
-        try:
-            rgb_image = self.bridge.cv2_to_imgmsg(rgb_image, "bgr8")
-        except CvBridgeError as e:
-            print(e)
-
-        self.rgb_image_publisher.publish(rgb_image)
-
-    def detect(self):
-        # Setting the mediapipe hand parameters
-        with self.mediapipe_hands.Hands(
-            max_num_hands = 1, # Limiting the number of hands detected in the image to 1
-            min_detection_confidence = 0.95,
-            min_tracking_confidence = 0.95) as hand:
-
-            while True:
-                start = time.time()
-
-                # Getting the image to process
-                rgb_image = camera.getting_image_data(self.pipeline)
-
-                if rgb_image is None:
-                    print('Did not receive an image. Please wait!')
-                    continue
-
-                # Rotate image if needed
-                if self.rotation_angle != 0:
-                    rgb_image = camera.rotate_image(rgb_image, self.rotation_angle)
+        # Plot each finger
+        for finger, finger_color in zip(self.fingers, self.fingers_colors):
+            for _c in finger:
+                self.ax.plot(
+                    [kpts3d_rotated[_c[0], 0], kpts3d_rotated[_c[1], 0]],
+                    [kpts3d_rotated[_c[0], 1], kpts3d_rotated[_c[1], 1]],
+                    [kpts3d_rotated[_c[0], 2], kpts3d_rotated[_c[1], 2]],
+                    linewidth=4, color=finger_color
+                )
+        plt.draw()
+        plt.pause(0.01)
+        
+    def calculate_hand_joint_states(self, kpts_3d_array):
+        """Visualize the latest frame's 3D keypoints and publish 63 coordinates."""
+        if kpts_3d_array.ndim != 2 or kpts_3d_array.shape[1] != 3:
+            raise ValueError("Expected kpts_3d_array to be of shape (21, 3)")      
+        
+        # Flatten the 21 keypoints (each having 3 coordinates) into a 1D array
+        data = kpts_3d_array.flatten().tolist()
     
-                # Getting the hand pose results out of the image
-                rgb_image.flags.writeable = False
-                estimate = hand.process(rgb_image)
+        # Prepare the ROS message with the flattened coordinates
+        coords_to_publish = Float64MultiArray()
+        coords_to_publish.data = data
+        self.pub.publish(coords_to_publish)
+        time.sleep(0.001)
+        
+        # Visualize only the last frame
+        # self.visualize_3d(kpts_3d_array)
+    
+    
+    def moving_average(self, keypoints, buffer, window_size):
+        """Apply moving average smoothing to the 2D/3D keypoints, ignoring invalid points."""
+        
+        # Only append keypoints if they are valid (not None and not too close to 0)
+        if keypoints is not None and np.any(np.abs(keypoints) > 1e-6):
+            buffer.append(keypoints)
+    
+        if len(buffer) > window_size:
+            buffer.pop(0)
+    
+        # If the buffer has valid points, compute the average; otherwise, use the current keypoints
+        if len(buffer) > 0:
+            average_kpts = np.mean(buffer, axis=0)
+        else:
+            average_kpts = keypoints  # Fallback to current keypoints if no valid data
+    
+        return average_kpts, buffer
+    
 
-                # If there is a mediapipe hand estimate
-                if estimate.multi_hand_landmarks is not None:  
+    def run_mp(self, input_stream1, input_stream2, P0, P1):
+        cap0 = cv.VideoCapture(input_stream1)
+        cap1 = cv.VideoCapture(input_stream2)
+        caps = [cap0, cap1]
+        # Get size of the video stream from cap0
+        width0 = int(cap0.get(cv.CAP_PROP_FRAME_WIDTH))
+        height0 = int(cap0.get(cv.CAP_PROP_FRAME_HEIGHT))
+        print(f"Stream 1 Size: {width0}x{height0}")
 
-                    # Getting the hand coordinate values for the only detected hand
-                    hand_landmarks = estimate.multi_hand_landmarks[0]
+        # Get size of the video stream from cap1
+        width1 = int(cap1.get(cv.CAP_PROP_FRAME_WIDTH))
+        height1 = int(cap1.get(cv.CAP_PROP_FRAME_HEIGHT))
+        print(f"Stream 2 Size: {width1}x{height1}")
+        for cap in caps:
+            cap.set(3, frame_shape[1])
+            cap.set(4, frame_shape[0])
 
-                    # Obtaining the joint coordinate estimates from Mediapipe
-                    wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions = joint_handlers.get_joint_positions(hand_landmarks, self.cfg.realsense.resolution, self.cfg.mediapipe)
+        hands = mp_hands.Hands(min_detection_confidence=0.5, max_num_hands=1, min_tracking_confidence=0.5)
 
-                    # Transforming the coordinates 
-                    transformed_coords = self.transform_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
-                    
-                    # Also getting the absolute coordinates
-                    absolute_coordinates = self.get_absolute_coords(wrist_position, thumb_knuckle_position, index_knuckle_position, middle_knuckle_position, ring_knuckle_position, pinky_knuckle_position, finger_tip_positions)
-                    self.publish_absolute_coords(absolute_coordinates)
+        kpts_cam0, kpts_cam1, kpts_3d = [], [], []
 
-                    if self.moving_average is True:
-                        self.moving_average_queue.append(transformed_coords)
+        # Buffers for moving average smoothing
+        buffer0, buffer1 = [], []
 
-                        if len(self.moving_average_queue) > MOVING_AVERAGE_LIMIT:
-                            self.moving_average_queue.pop(0)
+        while not rospy.is_shutdown():
+            ret0, frame0 = cap0.read()
+            ret1, frame1 = cap1.read()
 
-                        mean_transformed_value = np.mean(self.moving_average_queue, axis = 0)
-                        self.publish_transformed_coords(mean_transformed_value)
+            if not ret0 or not ret1:
+                break
+
+            frame0_rgb = cv.cvtColor(frame0, cv.COLOR_BGR2RGB)
+            frame1_rgb = cv.cvtColor(frame1, cv.COLOR_BGR2RGB)
+
+            results0 = hands.process(frame0_rgb)
+            results1 = hands.process(frame1_rgb)
+
+            # Extract keypoints for each hand, or ignore if no landmarks detected
+            if results0.multi_hand_landmarks:
+                frame0_keypoints = [
+                    [int(round(frame0.shape[1] * hand_landmarks.landmark[p].x)),
+                     int(round(frame0.shape[0] * hand_landmarks.landmark[p].y))]
+                    for hand_landmarks in results0.multi_hand_landmarks for p in range(21)]
+            else:
+                frame0_keypoints = None
+
+            if results1.multi_hand_landmarks:
+                frame1_keypoints = [
+                    [int(round(frame1.shape[1] * hand_landmarks.landmark[p].x)),
+                     int(round(frame1.shape[0] * hand_landmarks.landmark[p].y))]
+                    for hand_landmarks in results1.multi_hand_landmarks for p in range(21)]
+            else:
+                frame1_keypoints = None
+
+            # Proceed only if both frames have valid keypoints
+            if frame0_keypoints and frame1_keypoints:
+                # Apply moving average smoothing
+                frame0_keypoints, buffer0 = self.moving_average(frame0_keypoints, buffer0, 3)
+                frame1_keypoints, buffer1 = self.moving_average(frame1_keypoints, buffer1, 3)
+
+                kpts_cam0.append(frame0_keypoints)
+                kpts_cam1.append(frame1_keypoints)
+
+                # Only compute 3D keypoints if both UV coordinates are valid
+                frame_p3ds = [DLT(P0, P1, uv1, uv2) for uv1, uv2 in zip(frame0_keypoints, frame1_keypoints)]
+                kpts_3d = np.array(frame_p3ds).reshape((21, 3))
+                self.calculate_hand_joint_states(kpts_3d)  # Pass the 3D keypoints
+
+            # If either of the keypoints is None, continue without appending or processing invalid data
+            else:
+                continue
 
 
-                    else:
-                        # Publishing the transformed coordinates
-                        self.publish_transformed_coords(transformed_coords)
+        cv.destroyAllWindows()
+        for cap in caps:
+            cap.release()
 
-                    # Publishing the rgb and depth image data
-                    rgb_img_pub_start_time = time.time()
-                    self.publish_rgb_image(rgb_image)
-                    rgb_img_pub_end_time = time.time()
+        return np.array(kpts_cam0), np.array(kpts_cam1), np.array(kpts_3d)
+    
+    def run(self):
+        while not rospy.is_shutdown():
+            hand_join_state_publisher = HandJointStatePublisher()
 
-                if self.display_image:
+            input_stream1 = 0
+            input_stream2 = 2
 
-                    cv2.imshow('MediaPipe Hands', cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB))
-                    if cv2.waitKey(5) & 0xFF == 27:
-                        break
+            P0 = get_projection_matrix(0)
+            P1 = get_projection_matrix(1)
+
+            hand_join_state_publisher.run_mp(input_stream1, input_stream2, P0, P1)
+
+
+if __name__ == '__main__':
+    while not rospy.is_shutdown():
+        hand_join_state_publisher = HandJointStatePublisher()
+
+        input_stream1 = 0
+        input_stream2 = 2
+
+        # if len(sys.argv) == 3:
+        #     input_stream1 = int(sys.argv[1])
+        #     input_stream2 = int(sys.argv[2])
+
+        P0 = get_projection_matrix(0)
+        P1 = get_projection_matrix(1)
+
+        kpts_cam0, kpts_cam1, kpts_3d = hand_join_state_publisher.run_mp(input_stream1, input_stream2, P0, P1)
+
+        write_keypoints_to_disk('kpts_cam0.dat', kpts_cam0)
+        write_keypoints_to_disk('kpts_cam1.dat', kpts_cam1)
+        write_keypoints_to_disk('kpts_3d.dat', kpts_3d)
+

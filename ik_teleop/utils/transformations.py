@@ -4,7 +4,7 @@ import numpy as np
 # Image based imports
 import cv2
 
-def perform_persperctive_transformation(input_coordinate, mediapipe_bound, allegro_bound, allegro_height):
+def perform_perspective_transformation(input_coordinate, mediapipe_bound, allegro_bound, allegro_height):
     # Get the perspective transformation matrix
     transformation_matrix = cv2.getPerspectiveTransform(np.float32(mediapipe_bound), np.float32(allegro_bound))
 

@@ -21,7 +21,7 @@ from ik_teleop.ik_core.allegro_ik import AllegroInvKDL
 from allegro_robot.allegro_hand_control import AllegroEnv
 
 # Utility imports
-from utils.transformations import perform_persperctive_transformation
+from utils.transformations import perform_perspective_transformation
 
 # IPython import 
 from IPython import embed
@@ -78,7 +78,7 @@ class ThumbErrorDensity(object):
         cartesian_coordinate = [x_point, y_point, 1]
             
         # Obtaining the desired thumb coordinate by using perspective transformation on the cartesian coordinate and current thumb joint state
-        thumb_coordinate = perform_persperctive_transformation(cartesian_coordinate, self.error_density_map_vertices, self.cfg.allegro_bounds.thumb)
+        thumb_coordinate = perform_perspective_transformation(cartesian_coordinate, self.error_density_map_vertices, self.cfg.allegro_bounds.thumb)
         current_thumb_state = np.array(list(self.current_joint_state.position)[self.cfg.allegro.fingers['thumb'].offset : self.cfg.allegro.fingers['thumb'].offset + self.cfg.allegro.joints_per_finger])
     
         # Performing inverse kinematics on the desired joint angles

@@ -13,14 +13,14 @@ from hydra import initialize, compose
 from ik_teleop.ik_core.allegro_controller import AllegroIKController
 from ik_teleop.teleop_utils.calibrate import BoundCalibrator
 
-from ik_teleop.utils.transformations import perform_persperctive_transformation
+from ik_teleop.utils.transformations import perform_perspective_transformation
 
 sys.path.insert(1, '../../DIME-Controllers')
 from move_dexarm import DexArmControl
 
 from copy import deepcopy as copy
 
-HAND_COORD_TOPIC = '/transformed_mediapipe_joint_coords'
+HAND_COORD_TOPIC = '/hand_coords'
 CURR_JOINT_STATE_TOPIC = '/allegroHand/joint_states'
 
 URDF_PATH = "/home/vm/rpl/DIME-IK-TeleOp/ik_teleop/urdf_template/allegro_right.urdf"
@@ -53,13 +53,13 @@ class DexArmOp(object):
         rospy.Subscriber(HAND_COORD_TOPIC, Float64MultiArray, self._callback_hand_coords, queue_size = 1)
         rospy.Subscriber(CURR_JOINT_STATE_TOPIC, JointState, self._callback_curr_joint_state, queue_size = 1)
 
-        # Initializing calibrator and performing calibration sequence
-        self.calibrator = BoundCalibrator(storage_dir = os.getcwd())
+        # # Initializing calibrator and performing calibration sequence
+        # self.calibrator = BoundCalibrator(storage_dir = os.getcwd())
 
-        print("***************************************************************")
-        print("     Starting calibration process ")
-        print("***************************************************************")
-        self.calibrated_bounds = self.calibrator.check_and_load_calibration_file()
+        # print("***************************************************************")
+        # print("     Starting calibration process ")
+        # print("***************************************************************")
+        # self.calibrated_bounds = self.calibrator.check_and_load_calibration_file()
 
         # Initializing IK solver
         self.ik_solver = AllegroIKController(cfg = self.cfg.allegro, urdf_path = URDF_PATH)
@@ -146,7 +146,7 @@ class DexArmOp(object):
 
                 # Movement for the Thumb
                 if cv2.pointPolygonTest(np.float32(self.calibrated_bounds[4:]), np.float32(finger_tip_coords['thumb'][:2]), False) > -1:
-                    transformed_thumb_coordinate = perform_persperctive_transformation(
+                    transformed_thumb_coordinate = perform_perspective_transformation(
                         finger_tip_coords['thumb'],
                         self.calibrated_bounds[4 : ],
                         self.allegro_bounds['thumb'],
