@@ -7,6 +7,7 @@ from vectorops import *
 from timer import FrequencyTimer
 import time
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # Needed for 3D plotting
 
 
 class TransformHandPositionCoords():

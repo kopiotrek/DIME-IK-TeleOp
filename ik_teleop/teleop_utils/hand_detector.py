@@ -1,6 +1,8 @@
 import cv2 as cv
 import mediapipe as mp
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # Needed for 3D plotting
+
 import numpy as np
 import rospy
 import time
@@ -111,6 +113,21 @@ class HandJointStatePublisher:
     def run_mp(self, input_stream1, input_stream2, P0, P1):
         cap0 = cv.VideoCapture(input_stream1)
         cap1 = cv.VideoCapture(input_stream2)
+
+        # Get the frame width and height of cap0
+        frame_width0 = int(cap0.get(cv.CAP_PROP_FRAME_WIDTH))
+        frame_height0 = int(cap0.get(cv.CAP_PROP_FRAME_HEIGHT))
+
+        # Get the frame width and height of cap1
+        frame_width1 = int(cap1.get(cv.CAP_PROP_FRAME_WIDTH))
+        frame_height1 = int(cap1.get(cv.CAP_PROP_FRAME_HEIGHT))
+
+        # Define the codec and create VideoWriter objects to save the videos
+        fourcc = cv.VideoWriter_fourcc(*'XVID')  # You can use other codecs like 'mp4v', 'MJPG', etc.
+
+        out0 = cv.VideoWriter('output_cap0.avi', fourcc, 30.0, (frame_width0, frame_height0))
+        out1 = cv.VideoWriter('output_cap1.avi', fourcc, 30.0, (frame_width1, frame_height1))
+
         caps = [cap0, cap1]
         # Get size of the video stream from cap0
         width0 = int(cap0.get(cv.CAP_PROP_FRAME_WIDTH))
@@ -138,12 +155,16 @@ class HandJointStatePublisher:
 
             if not ret0 or not ret1:
                 break
-
+            out0.write(frame0)
+            out1.write(frame1)
             frame0_rgb = cv.cvtColor(frame0, cv.COLOR_BGR2RGB)
             frame1_rgb = cv.cvtColor(frame1, cv.COLOR_BGR2RGB)
 
             results0 = hands.process(frame0_rgb)
             results1 = hands.process(frame1_rgb)
+            
+            if cv.waitKey(1) & 0xFF == ord('q'):
+                break
 
             # Extract keypoints for each hand, or ignore if no landmarks detected
             if results0.multi_hand_landmarks:

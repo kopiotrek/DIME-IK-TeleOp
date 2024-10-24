@@ -33,15 +33,15 @@ class TeleOp(object):
             except rospy.ROSException as e:
                 print(f'Node initialization failed: {str(e)}')
                 pass
-        self.desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
-            0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
+        self.desired_joint_angles = np.array([0.0, 0.28113237, 0.16851817, 0.0, 0.0, 0.17603329, 
+            0.21581194, 0.0, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
         
         # Initialize AllegroKDL for inverse kinematics
         self.allegroKDL = AllegroKDL()
         self.allegroJC = AllegroJointControl()
         self.allegroKC = AllegroKinematicControl()
         self.allegroDAC = DexArmControl()
-        self.allegro_hand_config = get_yaml_data('/home/vm/rpl/Open-Teach/configs/robot/allegro_sim.yaml')
+        self.allegro_hand_config = get_yaml_data('/home/piotr/RPL/DIME-IK-TeleOp/ik_teleop/configs/allegro_sim.yaml')
 
         self.allegro_hand_operator = AllegroHandOperator(self.allegro_hand_config)
         self.grav_comp = DEFAULT_VAL

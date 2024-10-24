@@ -166,15 +166,14 @@ class AllegroHandOperator(Operator):
     def _apply_retargeted_angles(self):
         # while not rospy.is_shutdown():
             hand_keypoints = self.finger_coords
-            desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
-            0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
+            desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             # desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
             # 0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
             # # desired_joint_angles = copy(self.robot.get_joint_position())
 
             # Movement for the index finger with option to freeze the finger
             # if not self.finger_configs['freeze_index'] and not self.finger_configs['no_index']:
-            print("D1")
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'index',
                     finger_joint_coords = hand_keypoints['index'],
@@ -243,7 +242,6 @@ class AllegroHandOperator(Operator):
             #                      1.1,        
             #                      1.1,        
             #                      1.1])
-            print("D2")
             
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'middle',
@@ -263,7 +261,6 @@ class AllegroHandOperator(Operator):
             # Movement for the ring finger option to freeze the finger
             # if not self.finger_configs['freeze_ring'] and not self.finger_configs['no_ring']:
             
-            print("D3")
             
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'ring',
@@ -285,7 +282,7 @@ class AllegroHandOperator(Operator):
             
             # desired_joint_angles = self.thumb_angle_calculator(hand_keypoints['thumb'][-1], desired_joint_angles) # Passing just the tip coordinates
             # print('thumb',desired_joint_angles)
-            print("D4")
+            # print("D4")
             
             desired_joint_angles = self._get_3d_thumb_angles(
                     thumb_keypoints = hand_keypoints['thumb'][4],
