@@ -174,7 +174,6 @@ class AllegroHandOperator(Operator):
 
             # Movement for the index finger with option to freeze the finger
             # if not self.finger_configs['freeze_index'] and not self.finger_configs['no_index']:
-            print("D1")
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'index',
                     finger_joint_coords = hand_keypoints['index'],
@@ -243,7 +242,6 @@ class AllegroHandOperator(Operator):
             #                      1.1,        
             #                      1.1,        
             #                      1.1])
-            print("D2")
             
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'middle',
@@ -263,7 +261,6 @@ class AllegroHandOperator(Operator):
             # Movement for the ring finger option to freeze the finger
             # if not self.finger_configs['freeze_ring'] and not self.finger_configs['no_ring']:
             
-            print("D3")
             
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'ring',
@@ -285,7 +282,6 @@ class AllegroHandOperator(Operator):
             
             # desired_joint_angles = self.thumb_angle_calculator(hand_keypoints['thumb'][-1], desired_joint_angles) # Passing just the tip coordinates
             # print('thumb',desired_joint_angles)
-            print("D4")
             
             desired_joint_angles = self._get_3d_thumb_angles(
                     thumb_keypoints = hand_keypoints['thumb'][4],

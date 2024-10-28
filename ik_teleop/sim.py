@@ -33,7 +33,7 @@ class TeleOpSim(object):
         self.allegroKDL = AllegroKDL()
         self.allegroJC = AllegroJointControl()
         self.allegroKC = AllegroKinematicControl()
-        self.allegro_hand_config = get_yaml_data('/home/vm/rpl/Open-Teach/configs/robot/allegro_sim.yaml')
+        self.allegro_hand_config = get_yaml_data('configs/allegro_sim.yaml')
 
         self.allegro_hand_operator = AllegroHandOperator(self.allegro_hand_config)
         

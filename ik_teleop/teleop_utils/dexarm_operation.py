@@ -23,7 +23,7 @@ from copy import deepcopy as copy
 HAND_COORD_TOPIC = '/hand_coords'
 CURR_JOINT_STATE_TOPIC = '/allegroHand/joint_states'
 
-URDF_PATH = "/home/vm/rpl/DIME-IK-TeleOp/ik_teleop/urdf_template/allegro_right.urdf"
+URDF_PATH = "/home/vm/RPL/DIME-IK-TeleOp/ik_teleop/urdf_template/allegro_right.urdf"
 
 TRANS_HAND_TIPS = {
     'thumb': 6,

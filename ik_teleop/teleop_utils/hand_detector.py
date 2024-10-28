@@ -1,6 +1,9 @@
 import cv2 as cv
 import mediapipe as mp
 import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D  # Needed for 3D plotting
+
+import sys
 import numpy as np
 import rospy
 import time
@@ -8,7 +11,8 @@ from utils import DLT, get_projection_matrix, write_keypoints_to_disk
 from std_msgs.msg import Float64MultiArray
 
 mp_drawing = mp.solutions.drawing_utils
-mp_hands = mp.solutions.hands
+mp_hand0 = mp.solutions.hands
+mp_hand1 = mp.solutions.hands
 
 frame_shape = [480, 640]
 
@@ -111,81 +115,82 @@ class HandJointStatePublisher:
     def run_mp(self, input_stream1, input_stream2, P0, P1):
         cap0 = cv.VideoCapture(input_stream1)
         cap1 = cv.VideoCapture(input_stream2)
+    
+        frame_width0 = int(cap0.get(cv.CAP_PROP_FRAME_WIDTH))
+        frame_height0 = int(cap0.get(cv.CAP_PROP_FRAME_HEIGHT))
+        frame_width1 = int(cap1.get(cv.CAP_PROP_FRAME_WIDTH))
+        frame_height1 = int(cap1.get(cv.CAP_PROP_FRAME_HEIGHT))
+    
+        out0 = cv.VideoWriter('output_cap0.avi', cv.VideoWriter_fourcc(*'XVID'), 30.0, (frame_width0, frame_height0))
+        out1 = cv.VideoWriter('output_cap1.avi', cv.VideoWriter_fourcc(*'XVID'), 30.0, (frame_width1, frame_height1))
+    
         caps = [cap0, cap1]
-        # Get size of the video stream from cap0
-        width0 = int(cap0.get(cv.CAP_PROP_FRAME_WIDTH))
-        height0 = int(cap0.get(cv.CAP_PROP_FRAME_HEIGHT))
-        print(f"Stream 1 Size: {width0}x{height0}")
-
-        # Get size of the video stream from cap1
-        width1 = int(cap1.get(cv.CAP_PROP_FRAME_WIDTH))
-        height1 = int(cap1.get(cv.CAP_PROP_FRAME_HEIGHT))
-        print(f"Stream 2 Size: {width1}x{height1}")
         for cap in caps:
             cap.set(3, frame_shape[1])
             cap.set(4, frame_shape[0])
-
-        hands = mp_hands.Hands(min_detection_confidence=0.5, max_num_hands=1, min_tracking_confidence=0.5)
-
+    
+        hand0 = mp_hand0.Hands(min_detection_confidence=0.5, max_num_hands=1, min_tracking_confidence=0.5)
+        hand1 = mp_hand1.Hands(min_detection_confidence=0.5, max_num_hands=1, min_tracking_confidence=0.5)
+    
         kpts_cam0, kpts_cam1, kpts_3d = [], [], []
-
-        # Buffers for moving average smoothing
         buffer0, buffer1 = [], []
-
+    
         while not rospy.is_shutdown():
             ret0, frame0 = cap0.read()
             ret1, frame1 = cap1.read()
-
+    
             if not ret0 or not ret1:
                 break
-
+            out0.write(frame0)
+            out1.write(frame1)
+    
             frame0_rgb = cv.cvtColor(frame0, cv.COLOR_BGR2RGB)
             frame1_rgb = cv.cvtColor(frame1, cv.COLOR_BGR2RGB)
-
-            results0 = hands.process(frame0_rgb)
-            results1 = hands.process(frame1_rgb)
-
-            # Extract keypoints for each hand, or ignore if no landmarks detected
+    
+            results0 = hand0.process(frame0_rgb)
+            results1 = hand1.process(frame1_rgb)
+    
             if results0.multi_hand_landmarks:
+                for hand_landmarks in results0.multi_hand_landmarks:
+                    mp_drawing.draw_landmarks(frame0, hand_landmarks, mp_hand0.HAND_CONNECTIONS)
+    
+            if results1.multi_hand_landmarks:
+                for hand_landmarks in results1.multi_hand_landmarks:
+                    mp_drawing.draw_landmarks(frame1, hand_landmarks, mp_hand1.HAND_CONNECTIONS)
+    
+            cv.imshow('Camera 1', frame0)
+            cv.imshow('Camera 2', frame1)
+    
+            if cv.waitKey(1) & 0xFF == ord('q'):
+                break
+            
+            if results0.multi_hand_landmarks and results1.multi_hand_landmarks:
                 frame0_keypoints = [
                     [int(round(frame0.shape[1] * hand_landmarks.landmark[p].x)),
                      int(round(frame0.shape[0] * hand_landmarks.landmark[p].y))]
                     for hand_landmarks in results0.multi_hand_landmarks for p in range(21)]
-            else:
-                frame0_keypoints = None
-
-            if results1.multi_hand_landmarks:
+    
                 frame1_keypoints = [
                     [int(round(frame1.shape[1] * hand_landmarks.landmark[p].x)),
                      int(round(frame1.shape[0] * hand_landmarks.landmark[p].y))]
                     for hand_landmarks in results1.multi_hand_landmarks for p in range(21)]
-            else:
-                frame1_keypoints = None
-
-            # Proceed only if both frames have valid keypoints
-            if frame0_keypoints and frame1_keypoints:
-                # Apply moving average smoothing
+    
                 frame0_keypoints, buffer0 = self.moving_average(frame0_keypoints, buffer0, 3)
                 frame1_keypoints, buffer1 = self.moving_average(frame1_keypoints, buffer1, 3)
-
+    
                 kpts_cam0.append(frame0_keypoints)
                 kpts_cam1.append(frame1_keypoints)
-
-                # Only compute 3D keypoints if both UV coordinates are valid
+    
                 frame_p3ds = [DLT(P0, P1, uv1, uv2) for uv1, uv2 in zip(frame0_keypoints, frame1_keypoints)]
                 kpts_3d = np.array(frame_p3ds).reshape((21, 3))
-                self.calculate_hand_joint_states(kpts_3d)  # Pass the 3D keypoints
-
-            # If either of the keypoints is None, continue without appending or processing invalid data
-            else:
-                continue
-
-
+                self.calculate_hand_joint_states(kpts_3d)
+    
         cv.destroyAllWindows()
         for cap in caps:
             cap.release()
-
+        
         return np.array(kpts_cam0), np.array(kpts_cam1), np.array(kpts_3d)
+
     
     def run(self):
         while not rospy.is_shutdown():
@@ -207,9 +212,10 @@ if __name__ == '__main__':
         input_stream1 = 0
         input_stream2 = 2
 
-        # if len(sys.argv) == 3:
-        #     input_stream1 = int(sys.argv[1])
-        #     input_stream2 = int(sys.argv[2])
+        # If two file paths are provided as arguments, use them as input streams
+        if len(sys.argv) == 3:
+            input_stream1 = sys.argv[1]  # file path for first input stream
+            input_stream2 = sys.argv[2]  # file path for second input stream
 
         P0 = get_projection_matrix(0)
         P1 = get_projection_matrix(1)
