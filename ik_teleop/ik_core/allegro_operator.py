@@ -166,8 +166,8 @@ class AllegroHandOperator(Operator):
     def _apply_retargeted_angles(self):
         # while not rospy.is_shutdown():
             hand_keypoints = self.finger_coords
-            desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
-            0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
+            desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
             # desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
             # 0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
             # # desired_joint_angles = copy(self.robot.get_joint_position())
