@@ -209,8 +209,8 @@ if __name__ == '__main__':
     while not rospy.is_shutdown():
         hand_join_state_publisher = HandJointStatePublisher()
 
-        input_stream1 = 0
-        input_stream2 = 2
+        input_stream1 = 2
+        input_stream2 = 0
 
         # If two file paths are provided as arguments, use them as input streams
         if len(sys.argv) == 3:

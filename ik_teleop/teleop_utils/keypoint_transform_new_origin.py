@@ -8,6 +8,7 @@ from timer import FrequencyTimer
 import time
 import matplotlib.pyplot as plt
 import mpl_toolkits.mplot3d
+import math
 
 
 class TransformHandPositionCoords():
@@ -28,14 +29,12 @@ class TransformHandPositionCoords():
         # Timer
         self.timer = FrequencyTimer(VR_FREQ)
         # Keypoint indices for knuckles
-        self.knuckle_points = (OCULUS_JOINTS['knuckles'][3], OCULUS_JOINTS['knuckles'][0])
+        self.reframe_keypoints = (OCULUS_JOINTS['wrist'][0],OCULUS_JOINTS['knuckles'][0], OCULUS_JOINTS['knuckles'][1],OCULUS_JOINTS['knuckles'][2],OCULUS_JOINTS['knuckles'][3])
         # Moving average queue
         self.moving_average_limit = moving_average_limit
         # Create a queue for moving average
         self.coord_moving_average_queue, self.frame_moving_average_queue = [], []
         self.coords_to_publish = Float64MultiArray()
-        
-        
         
         self.fingers = [
             [[0, 17], [17, 18], [18, 19], [19, 20]],  # Pinkie
@@ -90,35 +89,55 @@ class TransformHandPositionCoords():
         except ValueError as e:
             rospy.logerr(f"Error reshaping data: {e}")
 
-            
-            
+        
+    def normalize_finger_length(self, coords, target_length=10):
+        chain_length=math.dist(coords[0],coords[5])
 
+        scale = target_length/chain_length
+        print(scale)
+
+        # Scale each segment of the finger
+        for i in range(len(coords)):
+            coords[i]*=scale
+        return coords
     
     # Function to find hand coordinates with respect to the wrist
     def _translate_coords(self, hand_coords):
-        return copy(hand_coords) - hand_coords[0]
+        return copy(hand_coords) - hand_coords[9]
 
+    # Axis meaning: 
+    # Origin is where palm meets middle finger
+    # X is vector from origin outwards (perpendicular to palm)
+    # Y is vector from origin to the thumb (left)
+    # Z is vector from origin to middle finger (up)
     # Create a coordinate frame for the hand
-    def _get_coord_frame(self, index_knuckle_coord, pinky_knuckle_coord):
-        palm_normal = normalize_vector(np.cross(index_knuckle_coord, pinky_knuckle_coord))   # Current Z
-        palm_direction = normalize_vector(index_knuckle_coord + pinky_knuckle_coord)         # Current Y
-        cross_product = normalize_vector(np.cross(palm_direction, palm_normal))              # Current X
-        return [cross_product, palm_direction, palm_normal]
-
-    # Create a coordinate frame for the arm 
-    def _get_hand_dir_frame(self, origin_coord, index_knuckle_coord, pinky_knuckle_coord):
-
-        palm_normal = normalize_vector(np.cross(index_knuckle_coord, pinky_knuckle_coord))   # Unity space - Y
-        palm_direction = normalize_vector(index_knuckle_coord + pinky_knuckle_coord)         # Unity space - Z
-        cross_product = normalize_vector(index_knuckle_coord - pinky_knuckle_coord)              # Unity space - X
+    def _get_coord_frame(self, wrist_coord, index_knuckle_coord, middle_knuckle_coord, ring_knuckle_coord, pinky_knuckle_coord):
+        # Calculate Z-axis: vector from wrist to middle knuckle (upwards towards the middle finger)
+        z_axis = normalize_vector(middle_knuckle_coord - wrist_coord)
         
-        return [origin_coord, cross_product, palm_normal, palm_direction]
+        # Calculate Y-axis: vector from wrist to index knuckle (towards the thumb)
+        y_axis = normalize_vector(index_knuckle_coord - wrist_coord)
+        
+        # Calculate X-axis as the cross product of Y and Z axes to ensure orthogonality (outward from palm)
+        x_axis = normalize_vector(np.cross(y_axis, z_axis))
+        
+        # Recalculate Y-axis to ensure orthogonality with the new X and Z axes
+        y_axis = normalize_vector(np.cross(z_axis, x_axis))
+        
+        return [x_axis, y_axis, z_axis]
+
+
 
     def transform_keypoints(self, hand_coords):
         translated_coords = self._translate_coords(hand_coords)
+        print("D1")
+        translated_coords = self.normalize_finger_length(translated_coords)
         original_coord_frame = self._get_coord_frame(
-            translated_coords[self.knuckle_points[0]], 
-            translated_coords[self.knuckle_points[1]]
+            translated_coords[self.reframe_keypoints[0]], 
+            translated_coords[self.reframe_keypoints[1]], 
+            translated_coords[self.reframe_keypoints[2]], 
+            translated_coords[self.reframe_keypoints[3]], 
+            translated_coords[self.reframe_keypoints[4]]
         )
 
         if np.linalg.det(original_coord_frame) == 0:
@@ -143,7 +162,7 @@ class TransformHandPositionCoords():
 
     def visualize_3d(self, kpts3d):
         """Visualize the keypoints for a single frame."""
-        kpts3d_rotated = np.array([self.Rz @ self.Rx @ kpt for kpt in kpts3d])
+        kpts3d_rotated = np.array([kpt for kpt in kpts3d])
 
         # Clear plot axes for each frame and replot
         self.ax.cla()

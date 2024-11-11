@@ -126,27 +126,45 @@ class AllegroHandOperator(Operator):
         return curr_angles
 
     # Get robot thumb angles when moving in 3D motion
-    def _get_3d_thumb_angles(self, thumb_keypoints, curr_angles):
-        # Precompute reused values
-        planar_thumb_bounds_2d = Polygon(self.hand_thumb_bounds[:4])
-        z_hand_bound = self.hand_thumb_bounds[4]
+    # def _get_3d_thumb_angles(self, thumb_keypoints, curr_angles):
+    #     # Precompute reused values
+    #     planar_thumb_bounds_2d = Polygon(self.hand_thumb_bounds[:4])
+    #     z_hand_bound = self.hand_thumb_bounds[4]
 
-        # Using shapely's nearest_points to get the closest point within the bounds
-        planar_point = Point(thumb_keypoints[:2])  # Only use the 2D points for planar calculations
-        closest_point = nearest_points(planar_thumb_bounds_2d, planar_point)[0]
+    #     # Using shapely's nearest_points to get the closest point within the bounds
+    #     planar_point = Point(thumb_keypoints[:2])  # Only use the 2D points for planar calculations
+    #     closest_point = nearest_points(planar_thumb_bounds_2d, planar_point)[0]
 
-        # Form 3D coordinates by reusing z from thumb_keypoints
-        closest_point_coords = [closest_point.x, closest_point.y, thumb_keypoints[2]]
+    #     # Form 3D coordinates by reusing z from thumb_keypoints
+    #     closest_point_coords = [closest_point.x, closest_point.y, thumb_keypoints[2]]
 
-        # Convert polygon to list of points for OpenCV perspective transform
-        thumb_bounds_points = np.array(self.hand_thumb_bounds[:4], dtype=np.float32)
+    #     # Convert polygon to list of points for OpenCV perspective transform
+    #     thumb_bounds_points = np.array(self.hand_thumb_bounds[:4], dtype=np.float32)
 
+    #     return self.fingertip_solver.thumb_motion_3D(
+    #         hand_coordinates=closest_point_coords,
+    #         xy_hand_bounds=thumb_bounds_points,  # Pass as a list of points instead of Polygon
+    #         yz_robot_bounds=self.allegro_bounds['thumb_bounds'][0]['projective_bounds'],
+    #         z_hand_bound=z_hand_bound,
+    #         x_robot_bound=self.allegro_bounds['thumb_bounds'][0]['x_bounds'],
+    #         moving_avg_arr=self.moving_average_queues['thumb'], 
+    #         curr_angles=curr_angles
+    #     )
+    
+
+    # 27 mm is the distance between index and middle knuckle. In the hand tracking it is 1
+    # Axis meaning: 
+    # Origin is where palm meets middle finger
+    # X is vector from origin outwards (perpendicular to palm)
+    # Y is vector from origin to the thumb (left)
+    # Z is vector from origin to middle finger (up)
+    def _get_3d_thumb_angles(self, thumb_tip_keypoint, curr_angles):
+
+            # 27 mm is the distance between my index and middle knuckle. In the hand tracking coord system it is 1
+        # transformed_thumb_tip_keypoint = thumb_tip_keypoint*0.027 #conversion to m
+        transformed_thumb_tip_keypoint = thumb_tip_keypoint*0.014 #conversion to m
         return self.fingertip_solver.thumb_motion_3D(
-            hand_coordinates=closest_point_coords,
-            xy_hand_bounds=thumb_bounds_points,  # Pass as a list of points instead of Polygon
-            yz_robot_bounds=self.allegro_bounds['thumb_bounds'][0]['projective_bounds'],
-            z_hand_bound=z_hand_bound,
-            x_robot_bound=self.allegro_bounds['thumb_bounds'][0]['x_bounds'],
+            hand_coordinates=transformed_thumb_tip_keypoint,
             moving_avg_arr=self.moving_average_queues['thumb'], 
             curr_angles=curr_angles
         )
@@ -168,80 +186,13 @@ class AllegroHandOperator(Operator):
             hand_keypoints = self.finger_coords
             desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            # desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
-            # 0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
-            # # desired_joint_angles = copy(self.robot.get_joint_position())
-
-            # Movement for the index finger with option to freeze the finger
-            # if not self.finger_configs['freeze_index'] and not self.finger_configs['no_index']:
+            
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'index',
                     finger_joint_coords = hand_keypoints['index'],
                     curr_angles = desired_joint_angles,
                     moving_avg_arr = self.moving_average_queues['index']
                 )
-            # print('index',desired_joint_angles)
-            # desired_joint_angles =  np.array([0.06283185, 
-            #                                  3.35704426, 
-            #                                  0.04035115, 
-            #                                  0.09472102,
-            #                                  0.2,       
-            #                                  0.17603329,
-            #                                  0.21581194, 
-            #                                  0.2,        
-            #                                  0.2928223,  
-            #                                  0.16747166, 
-            #                                  1.45242466, 
-            #                                  1.45812127,
-            #                                  0.69531447, 
-            #                                  1.1,        
-            #                                  1.1,        
-            #                                  1.1])
-            # desired_joint_angles =  np.array([0.06283185, 
-            #                                  3.35704426, # Here i9s the issue, should be 0
-            #                                  0.04035115, 
-            #                                  0.09472102,
-            #                                  0.2,       
-            #                                  0.17603329,
-            #                                  0.21581194, 
-            #                                  0.2,        
-            #                                  0.2928223,  
-            #                                  0.16747166, 
-            #                                  1.45242466, 
-            #                                  1.45812127,
-            #                                  0.69531447, 
-            #                                  1.1,        
-            #                                  1.1,        
-            #                                  1.1])
-            # desired_joint_angles =  np.array([0.0, 0.0, 0.0, 0.0, 0.0,0.0,
-            #         0.0, 0.0,        0.0,  0.0, 0.0, 0.0,
-            #         0.0, 0.0,        0.0,        0.0    ]) 
-
-            # elif self.finger_configs['freeze_index']:
-                # self._generate_frozen_angles(desired_joint_angles, 'index')
-            # else:
-                # print("No index")
-                # pass
-            # Movement for the middle finger option to freeze the finger
-            # if not self.finger_configs['freeze_middle'] and not self.finger_configs['no_middle']:
-            
-            
-            # desired_joint_angles =  np.array([0.06283185, 
-            #                      3.35704426, 
-            #                      0.04035115, 
-            #                      0.09472102,
-            #                      0.2,       
-            #                      0.17603329, # Here is issue with middle finger
-            #                      0.21581194, 
-            #                      0.2,        
-            #                      0.2928223,  
-            #                      0.16747166, 
-            #                      1.45242466, 
-            #                      1.45812127,
-            #                      0.69531447, 
-            #                      1.1,        
-            #                      1.1,        
-            #                      1.1])
             
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'middle',
@@ -249,18 +200,7 @@ class AllegroHandOperator(Operator):
                     curr_angles = desired_joint_angles,
                     moving_avg_arr = self.moving_average_queues['middle']
                 )
-            # print('middle',desired_joint_angles)
-            
-            
-            
-            # elif self.finger_configs['freeze_middle']:
-                # self._generate_frozen_angles(desired_joint_angles, 'middle')
-            # else :
-                # print("No Middle")
-                # pass
-            # Movement for the ring finger option to freeze the finger
-            # if not self.finger_configs['freeze_ring'] and not self.finger_configs['no_ring']:
-            
+           
             
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'ring',
@@ -268,32 +208,12 @@ class AllegroHandOperator(Operator):
                     curr_angles = desired_joint_angles,
                     moving_avg_arr = self.moving_average_queues['ring']
                 )
-            # print('ring',desired_joint_angles)
-            
-            
-            # elif self.finger_configs['freeze_ring']:
-                # self._generate_frozen_angles(desired_joint_angles, 'ring')
-            # else: 
-                # print("No ring")
-                # pass
-            # Movement for the thumb finger with option to freeze the finger
-            # if not self.finger_configs['freeze_thumb'] and not self.finger_configs['no_thumb']:
-            
-            
-            # desired_joint_angles = self.thumb_angle_calculator(hand_keypoints['thumb'][-1], desired_joint_angles) # Passing just the tip coordinates
-            # print('thumb',desired_joint_angles)
+
             
             desired_joint_angles = self._get_3d_thumb_angles(
-                    thumb_keypoints = hand_keypoints['thumb'][4],
+                    thumb_tip_keypoint = hand_keypoints['thumb'][4],
                     curr_angles = desired_joint_angles,
             )
-            # elif self.finger_configs['freeze_thumb']:
-                # self._generate_frozen_angles(desired_joint_angles, 'thumb')
-            # else:
-                # print("No thumb")
-                # pass
-            # Move the robot
-            # self.robot.move(desired_joint_angles)
-            # print("D5")
+
             
             return desired_joint_angles

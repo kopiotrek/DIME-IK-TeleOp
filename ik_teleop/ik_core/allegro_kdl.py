@@ -3,6 +3,8 @@ import numpy as np
 from copy import deepcopy as copy
 from ik_teleop.teleop_utils.files import *
 from ik_teleop.teleop_utils.constants import *
+import time
+import pickle
 
 class AllegroKDL(object):
     def __init__(self):
@@ -27,7 +29,24 @@ class AllegroKDL(object):
                 ], 
                 name = finger
             )
+        # Load or initialize the IK cache
+        self.cache_file_path = "ik_cache.pkl"
+        self.ik_cache = self.load_cache()
     
+    def load_cache(self):
+        # Load the cache from a file if it exists; otherwise, return an empty dictionary
+        if os.path.exists(self.cache_file_path):
+            with open(self.cache_file_path, "rb") as file:
+                print("Loading IK cache from file.")
+                return pickle.load(file)
+        print("Initializing new IK cache.")
+        return {}
+
+    def save_cache(self):
+        # Save the cache to a file
+        with open(self.cache_file_path, "wb") as file:
+            pickle.dump(self.ik_cache, file)
+
     def finger_forward_kinematics(self, finger_type, input_angles):
         # Checking if the number of angles is equal to 4
         if len(input_angles) != self.hand_configs['joints_per_finger']:
@@ -56,33 +75,87 @@ class AllegroKDL(object):
         output_frame = self.chains[finger_type].forward_kinematics(input_angles)
         return output_frame[:3, 3], output_frame[:3, :3]
 
-    def finger_inverse_kinematics(self, finger_type, input_position, seed = None):
-        # Checking if the input figner type is a valid one
-        if finger_type not in self.hand_configs['fingers'].keys():
+    def finger_inverse_kinematics(self, finger_type, raw_input_position, seed):
+
+        input_position = tuple(round(p,3) for p in raw_input_position)
+        # Validate the finger type
+        if finger_type not in self.hand_configs['fingers']:
             print('Finger type does not exist')
             return
-        
+
+        # Clipping and adjusting seed
         if seed is not None:
-            # Checking if the number of angles is equal to 4
             if len(seed) != self.hand_configs['joints_per_finger']:
                 print('Incorrect seed array length')
                 return 
 
-            # Clipping the input angles based on the finger type
             finger_info = self.finger_configs['links_info'][finger_type]
-            for iterator in range(len(seed)):
-                if seed[iterator] > finger_info['joint_max'][iterator]:
-                    seed[iterator] = finger_info['joint_max'][iterator]
-                elif seed[iterator] < finger_info['joint_min'][iterator]:
-                    seed[iterator] = finger_info['joint_min'][iterator]
+            seed = [min(max(s, min_val), max_val) 
+                    for s, min_val, max_val in zip(seed, finger_info['joint_min'], finger_info['joint_max'])]
+            seed = [0] + seed + [0]
 
-            # Padding values at the beginning and the end to get for a (1x6) array
-            seed = list(seed)
-            seed.insert(0, 0)
-            seed.append(0)
+        # Check cache first
+        cache_key = (finger_type, tuple(input_position), tuple(seed))
+        if cache_key in self.ik_cache:
+            print("Cache used")
+            return self.ik_cache[cache_key][1:5]
+        else:
+            start_time = time.time()
+            output_angles = self.chains[finger_type].inverse_kinematics(
+                input_position,
+                initial_position=seed,
+                orientation_mode=None
+            )
+            elapsed_time = time.time() - start_time
+            print(f"Time taken for IK operation: {elapsed_time:.6f} seconds")
+            self.ik_cache[cache_key] = output_angles
+            self.save_cache()  # Update cache file after every IK computation
+            return output_angles[1:5]
+        # Measure time for IK operation
 
-        output_angles = self.chains[finger_type].inverse_kinematics(input_position, initial_position = seed)
-        return output_angles[1:5]
+
+        # Store in cache and update the file
+
+        # return output_angles
+
+    # def finger_inverse_kinematics(self, finger_type, input_position, seed = None):
+    #     # Checking if the input figner type is a valid one
+    #     if finger_type not in self.hand_configs['fingers'].keys():
+    #         print('Finger type does not exist')
+    #         return
+        
+    #     if seed is not None:
+    #         # Checking if the number of angles is equal to 4
+    #         if len(seed) != self.hand_configs['joints_per_finger']:
+    #             print('Incorrect seed array length')
+    #             return 
+
+    #         # Clipping the input angles based on the finger type
+    #         finger_info = self.finger_configs['links_info'][finger_type]
+    #         for iterator in range(len(seed)):
+    #             if seed[iterator] > finger_info['joint_max'][iterator]:
+    #                 # print(f"joint_max for {iterator} reached!")
+    #                 seed[iterator] = finger_info['joint_max'][iterator]
+    #             elif seed[iterator] < finger_info['joint_min'][iterator]:
+    #                 # print(f"seed={seed[iterator]}joint_min for {iterator} reached!")
+    #                 seed[iterator] = finger_info['joint_min'][iterator]
+
+    #         # Padding values at the beginning and the end to get for a (1x6) array
+    #         seed = list(seed)
+    #         seed.insert(0, 0)
+    #         seed.append(0)
+    #     # print(self.chains[finger_type])
+    #     start_time = time.time()
+    #     output_angles = self.chains[finger_type].inverse_kinematics(input_position, 
+    #     initial_position = seed,
+    #     max_iter = 3,
+    #     orientation_mode = None
+    #     )
+    #     elapsed_time = time.time() - start_time
+    #     print(f"Time taken for IK operation: {elapsed_time:.6f} seconds")
+    #     # print(f"output_angles{output_angles}")
+
+    #     return output_angles[1:5]
 
     def get_fingertip_coords(self, joint_positions):
         # index_coords = self.finger_forward_kinematics('index', joint_positions[:4])[0]

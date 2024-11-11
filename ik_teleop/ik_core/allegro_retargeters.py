@@ -291,33 +291,47 @@ class AllegroKDLControl(AllegroKinematicControl):
         return desired_angles
 
 
+    # def thumb_motion_3D(
+    #     self, 
+    #     hand_coordinates, 
+    #     xy_hand_bounds,  # Now a list of points, not a Polygon
+    #     yz_robot_bounds, 
+    #     z_hand_bound, 
+    #     x_robot_bound, 
+    #     moving_avg_arr, 
+    #     curr_angles
+    # ):
+    #     # Apply perspective transformation to obtain robot coordinates
+    #     y_robot_coord, z_robot_coord = perspective_transform(
+    #         hand_coordinates[:2],  # 2D hand coordinates (x, y)
+    #         xy_hand_bounds,  # Ensure this is in the correct format (np.float32)
+    #         yz_robot_bounds
+    #     )
+        
+    #     # Perform a linear transform for the z-axis
+    #     x_robot_coord = linear_transform(hand_coordinates[2], z_hand_bound, x_robot_bound)
+        
+    #     # Combine the transformed coordinates
+    #     transformed_coords = [x_robot_coord, y_robot_coord, z_robot_coord]
+        
+    #     # Compute the desired joint angles based on the transformed coordinates
+    #     return self.calculate_desired_angles(
+    #         'thumb', 
+    #         transformed_coords, 
+    #         moving_avg_arr, 
+    #         curr_angles
+    #     )
+
     def thumb_motion_3D(
         self, 
         hand_coordinates, 
-        xy_hand_bounds,  # Now a list of points, not a Polygon
-        yz_robot_bounds, 
-        z_hand_bound, 
-        x_robot_bound, 
         moving_avg_arr, 
         curr_angles
     ):
-        # Apply perspective transformation to obtain robot coordinates
-        y_robot_coord, z_robot_coord = perspective_transform(
-            hand_coordinates[:2],  # 2D hand coordinates (x, y)
-            xy_hand_bounds,  # Ensure this is in the correct format (np.float32)
-            yz_robot_bounds
-        )
-        
-        # Perform a linear transform for the z-axis
-        x_robot_coord = linear_transform(hand_coordinates[2], z_hand_bound, x_robot_bound)
-        
-        # Combine the transformed coordinates
-        transformed_coords = [x_robot_coord, y_robot_coord, z_robot_coord]
-        
         # Compute the desired joint angles based on the transformed coordinates
         return self.calculate_desired_angles(
             'thumb', 
-            transformed_coords, 
+            hand_coordinates, 
             moving_avg_arr, 
             curr_angles
         )
