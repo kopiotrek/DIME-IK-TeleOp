@@ -54,6 +54,9 @@ class AllegroHandOperator(Operator):
             'ring': []
         }
 
+        self.last_desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.263, 0.0, 0.0, 0.0])
+
         # Calibrating to get the thumb bounds
         self._calibrate_bounds()
 
@@ -158,13 +161,13 @@ class AllegroHandOperator(Operator):
     # X is vector from origin outwards (perpendicular to palm)
     # Y is vector from origin to the thumb (left)
     # Z is vector from origin to middle finger (up)
-    def _get_3d_thumb_angles(self, thumb_tip_keypoint, curr_angles):
+    def _get_3d_thumb_angles(self, thumb_joint_coords, curr_angles):
 
             # 27 mm is the distance between my index and middle knuckle. In the hand tracking coord system it is 1
         # transformed_thumb_tip_keypoint = thumb_tip_keypoint*0.027 #conversion to m
-        transformed_thumb_tip_keypoint = thumb_tip_keypoint*0.014 #conversion to m
+        thumb_joint_coords = thumb_joint_coords*0.017 #conversion to m
         return self.fingertip_solver.thumb_motion_3D(
-            hand_coordinates=transformed_thumb_tip_keypoint,
+            thumb_joint_coords=thumb_joint_coords,
             moving_avg_arr=self.moving_average_queues['thumb'], 
             curr_angles=curr_angles
         )
@@ -184,8 +187,7 @@ class AllegroHandOperator(Operator):
     def _apply_retargeted_angles(self):
         # while not rospy.is_shutdown():
             hand_keypoints = self.finger_coords
-            desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+            desired_joint_angles = self.last_desired_joint_angles
             
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'index',
@@ -211,9 +213,13 @@ class AllegroHandOperator(Operator):
 
             
             desired_joint_angles = self._get_3d_thumb_angles(
-                    thumb_tip_keypoint = hand_keypoints['thumb'][4],
+                    thumb_joint_coords = hand_keypoints['thumb'],
                     curr_angles = desired_joint_angles,
             )
+
+            # self.last_desired_joint_angles = np.round(desired_joint_angles, 2)
+            self.last_desired_joint_angles = desired_joint_angles
+            # print(f"last_desired_joint_angles{self.last_desired_joint_angles}")
 
             
             return desired_joint_angles

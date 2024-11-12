@@ -46,6 +46,7 @@ class AllegroJointControl(AllegroKinematicControl):
         self.rotatory_scaling_factors = self.bound_info['rotatory_scaling_factors']
 
     def _get_filtered_angles(self, finger_type, calc_finger_angles, curr_angles, moving_avg_arr):
+        # print(f"[finger_type]: {finger_type}")
         # print(f"curr_angles: {curr_angles}")
         # print(f"moving_avg_arr: {moving_avg_arr}")
         
@@ -54,26 +55,6 @@ class AllegroJointControl(AllegroKinematicControl):
         desired_angles = np.array(copy(curr_angles))
 
         
-        # # Applying angular bounds
-        # if self.bounded_angles is True:
-        #     #print(avg_finger_angles)
-        #     #print(curr_finger_angles)
-        #     print(f"avg_finger_angles: {avg_finger_angles}")
-        #     print(f"curr_finger_angles: {curr_finger_angles}")
-        #     del_finger_angles = avg_finger_angles - curr_finger_angles[1:]  # Ignore the first element of curr_finger_angles
-        #     print(f"del_finger_angles: {del_finger_angles}")
-        #     print(f"self.bounds[finger_type]: {self.bounds[finger_type]}")
-        #     print(f"self.bounds[finger_type]: {self.bounds[finger_type]}")
-        #     print(f"[finger_type]: {finger_type}")
-
-        #     # clipped_del_finger_angles = np.clip(del_finger_angles, - self.bounds[finger_type], self.bounds[finger_type])
-        #     for idx in range(self.hand_configs['joints_per_finger']-1):
-        #         clipped_del_finger_angles = np.clip(del_finger_angles[idx], - self.bounds[finger_type][idx], self.bounds[finger_type][idx])
-        #     print(f"clipped_del_finger_angles: {clipped_del_finger_angles}")
-
-        #     for idx in range(1, self.hand_configs['joints_per_finger']):
-        #         desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] += clipped_del_finger_angles[idx-1]
-        # else:
         for idx in range(1, self.hand_configs['joints_per_finger']):
                 # print('config: ', self.finger_configs['links_info'][finger_type]['offset'])
                 desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = avg_finger_angles[idx-1]
@@ -92,13 +73,6 @@ class AllegroJointControl(AllegroKinematicControl):
         # print(f"[finger_type]: {finger_type}")
 
         for idx in range(self.hand_configs['joints_per_finger']-1): # Ignoring the rotatory joint
-        # for idx in range(self.hand_configs['joints_per_finger'] - 2, -1, -1):
-         # Loop body
-
-            # print(f"Points for joint {idx}:")
-            # print(f"point1: {finger_joint_coords[idx]}")
-            # print(f"point2: {finger_joint_coords[idx + 1]}")
-            # print(f"point3: {finger_joint_coords[idx + 2]}")
             
             
             angle = calculate_angle(
@@ -109,17 +83,12 @@ class AllegroJointControl(AllegroKinematicControl):
             # print(f"Calculated angle for joint {idx}: {angle}")
             translatory_angles.append(angle * self.linear_scaling_factors[idx])
 
-        # rotatory_angle = [self.calculate_finger_rotation(finger_joint_coords) * self.rotatory_scaling_factors[finger_type]] 
-        # print(f"translatory_angles: {translatory_angles}")
-        # print(f"rotatory_angle: {rotatory_angle}")
-        # translatory_angles: [3.357044255962196, 0.04035115136001469, 0.09472101556464771]
-        # rotatory_angle: [0.06283185307179587]
-
         # calc_finger_angles = rotatory_angle + translatory_angles
         calc_finger_angles = translatory_angles
         # calc_finger_angles = [3.0] + translatory_angles
         filtered_angles = self._get_filtered_angles(finger_type, calc_finger_angles, curr_angles, moving_avg_arr)
         return filtered_angles
+
 
 
     # def calculate_finger_rotation(self, finger_joint_coords):
@@ -142,18 +111,24 @@ class AllegroKDLControl(AllegroKinematicControl):
     def __init__(self,  bounded_angles = True):
         super().__init__(bounded_angles)
         self.solver = AllegroKDL()
+        self.ajc = AllegroJointControl()
 
     def calculate_desired_angles(
         self, 
         finger_type, 
-        transformed_coords, 
+        finger_joint_coords, 
         moving_avg_arr, 
         curr_angles
     ):
-        curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)        
-        avg_finger_coords = moving_average(transformed_coords, moving_avg_arr, self.time_steps)    
-        calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, avg_finger_coords, curr_finger_angles)
+        tip_coord = finger_joint_coords[4]
+        curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)  
+
+        # avg_finger_coords = moving_average(tip_coord, moving_avg_arr, self.time_steps)    
+        calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, tip_coord, curr_finger_angles)
         
+        calc_finger_angles_no_ik = self.ajc.calculate_finger_angles(finger_type, finger_joint_coords, curr_angles, moving_avg_arr)
+        calc_finger_angles_no_ik[15]=calc_finger_angles_no_ik[15]*1.3
+        # calc_finger_angles[-1] = calc_finger_angles_no_ik[15]
 
         desired_angles = np.array(copy(curr_angles))
 
@@ -167,7 +142,7 @@ class AllegroKDLControl(AllegroKinematicControl):
             for idx in range(self.hand_configs['joints_per_finger']):
                 desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = calc_finger_angles[idx]
 
-
+        # print(f"desired_angles{desired_angles}")
         return desired_angles 
 
     def finger_1D_motion(
@@ -324,14 +299,14 @@ class AllegroKDLControl(AllegroKinematicControl):
 
     def thumb_motion_3D(
         self, 
-        hand_coordinates, 
+        thumb_joint_coords, 
         moving_avg_arr, 
         curr_angles
     ):
         # Compute the desired joint angles based on the transformed coordinates
         return self.calculate_desired_angles(
             'thumb', 
-            hand_coordinates, 
+            thumb_joint_coords, 
             moving_avg_arr, 
             curr_angles
         )

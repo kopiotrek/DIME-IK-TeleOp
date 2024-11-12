@@ -3,8 +3,11 @@ import numpy as np
 from copy import deepcopy as copy
 from ik_teleop.teleop_utils.files import *
 from ik_teleop.teleop_utils.constants import *
+from threading import Thread
 import time
 import pickle
+from io import StringIO
+import sys
 
 class AllegroKDL(object):
     def __init__(self):
@@ -32,7 +35,8 @@ class AllegroKDL(object):
         # Load or initialize the IK cache
         self.cache_file_path = "ik_cache.pkl"
         self.ik_cache = self.load_cache()
-    
+        self.last_knuckle_angles = [0.0, 0.43077692, 0.08167671, 0.81602719, 0.00001407, 0.0]
+       
     def load_cache(self):
         # Load the cache from a file if it exists; otherwise, return an empty dictionary
         if os.path.exists(self.cache_file_path):
@@ -75,9 +79,10 @@ class AllegroKDL(object):
         output_frame = self.chains[finger_type].forward_kinematics(input_angles)
         return output_frame[:3, 3], output_frame[:3, :3]
 
-    def finger_inverse_kinematics(self, finger_type, raw_input_position, seed):
+    def finger_inverse_kinematics(self, finger_type, raw_tip_coord, seed):
+        # print(f"finger_inverse_kinematics seed{seed}")
 
-        input_position = tuple(round(p,3) for p in raw_input_position)
+        tip_coord = tuple(round(p,3) for p in raw_tip_coord)
         # Validate the finger type
         if finger_type not in self.hand_configs['fingers']:
             print('Finger type does not exist')
@@ -88,35 +93,70 @@ class AllegroKDL(object):
             if len(seed) != self.hand_configs['joints_per_finger']:
                 print('Incorrect seed array length')
                 return 
+            seed = np.concatenate(([0.0], seed, [0.0]))
+            # seed[1] = 0.263
 
-            finger_info = self.finger_configs['links_info'][finger_type]
-            seed = [min(max(s, min_val), max_val) 
-                    for s, min_val, max_val in zip(seed, finger_info['joint_min'], finger_info['joint_max'])]
-            seed = [0] + seed + [0]
+            # finger_info = self.finger_configs['links_info'][finger_type]
+            # seed = [min(max(s, min_val), max_val) 
+            #         for s, min_val, max_val in zip(seed, finger_info['joint_min'], finger_info['joint_max'])]
+            # seed = [0] + seed + [0]
 
         # Check cache first
-        cache_key = (finger_type, tuple(input_position), tuple(seed))
+        cache_key = (finger_type, tuple(tip_coord), tuple(seed))
         if cache_key in self.ik_cache:
             print("Cache used")
             return self.ik_cache[cache_key][1:5]
         else:
             start_time = time.time()
-            output_angles = self.chains[finger_type].inverse_kinematics(
-                input_position,
-                initial_position=seed,
-                orientation_mode=None
-            )
+            output_angles = self.ik_with_timeout(self.chains[finger_type], tip_coord, seed)
+            # output_angles = self.chains[finger_type].inverse_kinematics(
+            #     tip_coord,
+            #     initial_position=seed,
+            #     orientation_mode=None,
+            #     max_iter=1
+            # )
             elapsed_time = time.time() - start_time
             print(f"Time taken for IK operation: {elapsed_time:.6f} seconds")
             self.ik_cache[cache_key] = output_angles
             self.save_cache()  # Update cache file after every IK computation
             return output_angles[1:5]
-        # Measure time for IK operation
 
 
-        # Store in cache and update the file
+    def ik_with_timeout(self, chain, tip_coord, seed, timeout=0.4):
+        # Wrapper to hold the result and control completion status
+        result = {"angles": None, "completed": False}
+        # print(f"seed{seed}")
+        original_stdout = sys.stdout
+        sys.stdout = StringIO()  # Redirect stdout to a dummy StringIO object
+        def run_ik():
+            print(f"links{chain.links}")
+            print(f"active_links_mask{chain.active_links_mask}")
+            print(f"name{chain.name}")
+            # print(f"urdf_metadata{chain.urdf_metadata}")
+            result["angles"] = chain.inverse_kinematics(
+                tip_coord,
+                initial_position=seed,
+                orientation_mode=None,
+                max_iter=1,
+                regularization_parameter=0.005,
+            )
+            result["completed"] = True
+        sys.stdout = original_stdout  # Restore original stdout
 
-        # return output_angles
+        # Start the IK calculation in a separate thread
+        ik_thread = Thread(target=run_ik)
+        ik_thread.start()
+        ik_thread.join(timeout)  # Wait for IK to complete or timeout
+        # print(f"tip_coord{tip_coord}")
+        # print(f"seed{seed}")
+        # print(f"result[angles]{result['angles']}")
+
+        # Check if the thread completed within the timeout
+        if not result["completed"]:
+            print("IK computation exceeded time limit.")
+            return self.last_knuckle_angles
+        self.last_knuckle_angles = result["angles"]
+        return result["angles"]
 
     # def finger_inverse_kinematics(self, finger_type, input_position, seed = None):
     #     # Checking if the input figner type is a valid one
