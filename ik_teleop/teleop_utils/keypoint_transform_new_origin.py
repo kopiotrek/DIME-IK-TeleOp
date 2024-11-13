@@ -161,14 +161,14 @@ class TransformHandPositionCoords():
         return angle
 
     def visualize_3d(self, kpts3d):
-        """Visualize the keypoints for a single frame."""
+        """Visualize the keypoints for a single frame with angles between consecutive points."""
         kpts3d_rotated = np.array([kpt for kpt in kpts3d])
-
+    
         # Clear plot axes for each frame and replot
         self.ax.cla()
         self.setup_plot()
-        
-        # Plot each finger
+    
+        # Plot each finger (as before)
         for finger, finger_color in zip(self.fingers, self.fingers_colors):
             for _c in finger:
                 self.ax.plot(
@@ -177,30 +177,30 @@ class TransformHandPositionCoords():
                     [kpts3d_rotated[_c[0], 2], kpts3d_rotated[_c[1], 2]],
                     linewidth=4, color=finger_color
                 )
-
-        # Select keypoints for which you want to calculate the angle
-        point_1 = kpts3d_rotated[0]  # Example keypoints
-        point_2 = kpts3d_rotated[3]
-        point_3 = kpts3d_rotated[4]
-
-        # Calculate vectors between points
-        vec1 = point_1 - point_2
-        vec2 = point_3 - point_2
-
-        # Compute the angle between these vectors in radians
-        angle = self.angle_between_vectors(vec1, vec2)
-
-        # Display the calculated angle on the plot
-        mid_point = (point_1 + point_3) / 2  # Midpoint to display the angle
-        self.ax.text(mid_point[0], mid_point[1], mid_point[2], f'{angle:.2f} rad', color='black', fontsize=10)
-
-        # Plot individual keypoints (optional visualization as before)
-        self.ax.scatter([point_1[0]], [point_1[1]], [point_1[2]], color=self.fingers_colors[0], s=50)
-        self.ax.scatter([point_2[0]], [point_2[1]], [point_2[2]], color=self.fingers_colors[1], s=50)
-        self.ax.scatter([point_3[0]], [point_3[1]], [point_3[2]], color=self.fingers_colors[2], s=50)
-
+    
+        # Define points and calculate angles between them
+        points = [kpts3d_rotated[i] for i in range(5)]
+    
+        # Loop through consecutive triplets of points to calculate angles
+        for i in range(3):
+            p1, p2, p3 = points[i], points[i + 1], points[i + 2]
+    
+            # Calculate vectors and the angle between them
+            vec1 = p1 - p2
+            vec2 = p3 - p2
+            angle = self.angle_between_vectors(vec1, vec2)
+    
+            # Midpoint between p1 and p3 to display angle
+            mid_point = (p1 + p3) / 2
+            self.ax.text(mid_point[0], mid_point[1], mid_point[2], f'{angle:.2f} rad', color='black', fontsize=10)
+    
+        # Plot individual keypoints (optional visualization)
+        for idx, point in enumerate(points):
+            self.ax.scatter([point[0]], [point[1]], [point[2]], color=self.fingers_colors[idx % len(self.fingers_colors)], s=50)
+    
         plt.draw()
         plt.pause(0.01)
+    
 
     def stream(self):
         while not rospy.is_shutdown():

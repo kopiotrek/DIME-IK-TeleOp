@@ -4,6 +4,7 @@ from copy import deepcopy as copy
 from .allegro_kdl import AllegroKDL
 from  ik_teleop.teleop_utils.files import *
 from  ik_teleop.teleop_utils.vectorops import *
+import time
 
 
 class AllegroKinematicControl(ABC):
@@ -36,14 +37,7 @@ class AllegroJointControl(AllegroKinematicControl):
         np.set_printoptions(suppress = True)
 
         self.linear_scaling_factors = self.bound_info['linear_scaling_factors']
-        self.rotatory_scaling_factors = self.bound_info['rotatory_scaling_factors']
-
-    def __init__(self, bounded_angles = True):
-        super().__init__(bounded_angles)
-        np.set_printoptions(suppress = True)
-
-        self.linear_scaling_factors = self.bound_info['linear_scaling_factors']
-        self.rotatory_scaling_factors = self.bound_info['rotatory_scaling_factors']
+        self.rotatory_thumb_scaling_factors = self.bound_info['rotatory_thumb_scaling_factors']
 
     def _get_filtered_angles(self, finger_type, calc_finger_angles, curr_angles, moving_avg_arr):
         # print(f"[finger_type]: {finger_type}")
@@ -63,6 +57,28 @@ class AllegroJointControl(AllegroKinematicControl):
         for idx in range(1, 16):
             if desired_angles[idx] > 2.5:
                 desired_angles[idx] = 0
+        # print(f"desired_angles: {desired_angles}")
+
+        return desired_angles 
+
+    def _get_filtered_thumb_angles(self, finger_type, calc_finger_angles, curr_angles, moving_avg_arr):
+        # print(f"[finger_type]: {finger_type}")
+        # print(f"curr_angles: {curr_angles}")
+        # print(f"moving_avg_arr: {moving_avg_arr}")
+        
+        curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)
+        avg_finger_angles = moving_average(calc_finger_angles, moving_avg_arr, self.time_steps)       
+        desired_angles = np.array(copy(curr_angles))
+
+        
+        for idx in range(self.hand_configs['joints_per_finger']):
+                # print('config: ', self.finger_configs['links_info'][finger_type]['offset'])
+                desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = avg_finger_angles[idx-1]
+                
+
+        # for idx in range(1, 16):
+        #     if desired_angles[idx] > 2.5:
+        #         desired_angles[idx] = 0
         # print(f"desired_angles: {desired_angles}")
 
         return desired_angles 
@@ -89,6 +105,103 @@ class AllegroJointControl(AllegroKinematicControl):
         filtered_angles = self._get_filtered_angles(finger_type, calc_finger_angles, curr_angles, moving_avg_arr)
         return filtered_angles
 
+    def calculate_thumb_angles(self, thumb_joint_coords, curr_angles, moving_avg_arr):
+#   thumb:
+#     name: 'Thumb'
+#     link: 'joint_12.0'
+#     offset: 12
+#     joint_min: 
+#       - 0.263 
+#       - -0.105
+#       - -0.189
+#       - -0.162
+#     joint_max: 
+#       - 1.396
+#       - 2
+#       - 1.644
+#       - 1.719
+
+# angle1 2.0748385330232537
+# angle2 2.770279925046859
+# angle3 0.27820246207554605
+# angle4 0.14607366505253935
+
+        calc_finger_angles = []
+        # joint 1
+        # WORKS BUT A BIT FLICKERY
+        angle = calculate_angle_y(
+            [0.0, 0.0, 0.0],
+            [0.0, 0.0, -0.1],
+            thumb_joint_coords[3]
+        )
+        # angle = -0.105
+        # angle = 2.0
+        # angle += 2.875279925
+        # print(f"angle1 {angle}")
+        time.sleep(0.1)
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[1])
+        
+        # joint 2
+        # VERY HIGH GAIN - NEEDS MODIFICATION
+        angle = calculate_angle(
+            thumb_joint_coords[0],
+            thumb_joint_coords[1],
+            thumb_joint_coords[2]
+        )
+        # angle = -0.189
+        # angle = 1.644
+        # angle -= 0.3
+        # print(f"angle2 {angle}")
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[2])
+
+
+        # joint 3
+        #WORKS
+        angle = calculate_angle(
+            thumb_joint_coords[1],
+            thumb_joint_coords[2],
+            thumb_joint_coords[3]
+        )
+        # angle = -0.162
+        # angle = 1.719
+        # angle += 0.308073665
+        # print(f"angle3 {angle}")
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[3])
+        
+        # joint 0
+        # WORKS
+        angle = calculate_angle_z(
+            [0.0, 0.0, 0.0],
+            thumb_joint_coords[1],
+            thumb_joint_coords[3]
+        )
+        # angle = 0.263
+        # angle = 1.396
+        # angle += -1.811838533
+        # print(f"angle0 {angle}")
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[0])
+
+        # print(f"calc_finger_angles {calc_finger_angles}")
+        # calc_finger_angles[3] - 0 joint
+        # calc_finger_angles[2] - 3 joint
+        # calc_finger_angles[1] - 2 joint
+        # calc_finger_angles[0] - 1 joint
+
+        # for idx in range(2,self.hand_configs['joints_per_finger']-1): # Ignoring the rotatory joint
+            
+            
+        #     angle = calculate_angle(
+        #         thumb_joint_coords[idx],
+        #         thumb_joint_coords[idx + 1],
+        #         thumb_joint_coords[idx + 2]
+        #     )
+        #     # print(f"Calculated angle for joint {idx}: {angle}")
+        #     calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[idx])
+
+        # calc_finger_angles = [3.0] + translatory_angles
+        filtered_angles = self._get_filtered_thumb_angles("thumb", calc_finger_angles, curr_angles, moving_avg_arr)
+        # print(f"filtered_angles {filtered_angles}")
+        return filtered_angles
 
 
     # def calculate_finger_rotation(self, finger_joint_coords):
@@ -127,20 +240,6 @@ class AllegroKDLControl(AllegroKinematicControl):
 
         # avg_finger_coords = moving_average(tip_coord, moving_avg_arr, self.time_steps)    
         calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, tip_coord, curr_finger_angles)
-        
-
-        # calc_finger_angles_no_ik = self.ajc.calculate_finger_angles(finger_type, finger_joint_coords, curr_angles, moving_avg_arr)
-        # calc_finger_angles_no_ik[15]=calc_finger_angles_no_ik[15]*1.3
-        # calc_finger_angles[-1] = calc_finger_angles_no_ik[15]
-
-        calc_finger_angles_no_ik = self.ajc.calculate_finger_angles(finger_type, finger_joint_coords, curr_angles, moving_avg_arr)
-        # print(f"calc_finger_angles {calc_finger_angles}")
-        # print(f"calc_finger_angles_no_ik {calc_finger_angles_no_ik}")
-        calc_finger_angles_no_ik[15]=calc_finger_angles_no_ik[15]*1.3
-
-        calc_finger_angles = np.insert(calc_finger_angles, 3, calc_finger_angles_no_ik[15])
-        # print(f"calc_finger_angles_insert {calc_finger_angles}")
-        # print(f"curr_finger_angles {curr_finger_angles}")
 
         desired_angles = np.array(copy(curr_angles))
 

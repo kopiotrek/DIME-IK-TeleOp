@@ -35,10 +35,6 @@ class AllegroKDL(object):
         # Load or initialize the IK cache
         self.cache_file_path = "ik_cache.pkl"
         self.ik_cache = self.load_cache()
-        self.chains["thumb"].links.pop(5)
-        self.chains["thumb"].links.pop(4)
-        self.chains["thumb"].active_links_mask = np.delete(self.chains["thumb"].active_links_mask, 5)
-        self.chains["thumb"].active_links_mask = np.delete(self.chains["thumb"].active_links_mask, 4)
         self.last_knuckle_angles = [0.0, 0.43077692, 0.08167671, 0.81602719, 0.00001407, 0.0]
 
        
@@ -98,8 +94,7 @@ class AllegroKDL(object):
             if len(seed) != self.hand_configs['joints_per_finger']:
                 print('Incorrect seed array length')
                 return 
-            # seed = np.concatenate(([0.0], seed, [0.0]))
-            seed = np.concatenate(([0.0], seed))
+            seed = np.concatenate(([0.0], seed, [0.0]))
             # seed[1] = 0.263
 
             # finger_info = self.finger_configs['links_info'][finger_type]
@@ -126,21 +121,12 @@ class AllegroKDL(object):
             # )
             self.ik_cache[cache_key] = output_angles
             self.save_cache()  # Update cache file after every IK computation
-            return output_angles[1:4]
+            return output_angles[1:5]
 
 
-    def ik_with_timeout(self, chain, tip_coord, seed, timeout=2.4):
+    def ik_with_timeout(self, chain, tip_coord, seed, timeout=0.4):
         # Wrapper to hold the result and control completion status
         result = {"angles": None, "completed": False}
-        seed = np.delete(seed, 4)
-        # seed = np.delete(seed, 3)
-
-        print(f"seed{seed}")
-        print(f"tip_coord{tip_coord}")
-        tip_coord = list(tip_coord)  # Convert tuple to list
-        tip_coord[0] = tip_coord[0] * 0.5  # Modify the value
-        tip_coord = tuple(tip_coord)  # Convert back to tuple if necessary
-        print(f"tip_coord{tip_coord}")
         original_stdout = sys.stdout
         sys.stdout = StringIO()  # Redirect stdout to a dummy StringIO object
         def run_ik():
@@ -152,8 +138,8 @@ class AllegroKDL(object):
                 tip_coord,
                 initial_position=seed,
                 orientation_mode=None,
-                # max_iter=1,
-                # regularization_parameter=0.005
+                max_iter=1,
+                regularization_parameter=0.005
             )
             result["completed"] = True
         sys.stdout = original_stdout

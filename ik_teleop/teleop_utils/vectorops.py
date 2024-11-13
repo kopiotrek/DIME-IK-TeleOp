@@ -37,23 +37,35 @@ def calculate_angle(coord_1, coord_2, coord_3):
     angle = np.arccos(inner_product / norm)
     return angle
 
-# def calculate_angle(a, b, c):       
-#     print("a",a)
-#     print("b",b)
-#     print("c",c)
+def calculate_angle_x(coord_1, coord_2, coord_3):
+    # Project coordinates onto the YZ plane by ignoring the X component
+    vector_1 = np.array([0, coord_2[1] - coord_1[1], coord_2[2] - coord_1[2]])
+    vector_2 = np.array([0, coord_3[1] - coord_2[1], coord_3[2] - coord_2[2]])
 
-#     v1 = np.array([ a[0] - b[0], a[1] - b[1], a[2] - b[2] ])
-#     v2 = np.array([ c[0] - b[0], c[1] - b[1], c[2] - b[2] ])
+    inner_product = np.inner(vector_1, vector_2)
+    norm = np.linalg.norm(vector_1) * np.linalg.norm(vector_2)
+    angle = np.arccos(inner_product / norm)
+    return angle
 
-#     v1mag = np.sqrt([ v1[0] * v1[0] + v1[1] * v1[1] + v1[2] * v1[2] ])
-#     v1norm = np.array([ v1[0] / v1mag, v1[1] / v1mag, v1[2] / v1mag ])
+def calculate_angle_y(coord_1, coord_2, coord_3):
+    # Project coordinates onto the XZ plane by ignoring the Y component
+    vector_1 = np.array([coord_2[0] - coord_1[0], 0, coord_2[2] - coord_1[2]])
+    vector_2 = np.array([coord_3[0] - coord_2[0], 0, coord_3[2] - coord_2[2]])
 
-#     v2mag = np.sqrt(v2[0] * v2[0] + v2[1] * v2[1] + v2[2] * v2[2])
-#     v2norm = np.array([ v2[0] / v2mag, v2[1] / v2mag, v2[2] / v2mag ])
-#     res = v1norm[0] * v2norm[0] + v1norm[1] * v2norm[1] + v1norm[2] * v2norm[2]
-#     angle_rad = np.arccos(res)
+    inner_product = np.inner(vector_1, vector_2)
+    norm = np.linalg.norm(vector_1) * np.linalg.norm(vector_2)
+    angle = np.arccos(inner_product / norm)
+    return angle
 
-#     return angle_rad
+def calculate_angle_z(coord_1, coord_2, coord_3):
+    # Project coordinates onto the XY plane by ignoring the Z component
+    vector_1 = np.array([coord_2[0] - coord_1[0], coord_2[1] - coord_1[1], 0])
+    vector_2 = np.array([coord_3[0] - coord_2[0], coord_3[1] - coord_2[1], 0])
+
+    inner_product = np.inner(vector_1, vector_2)
+    norm = np.linalg.norm(vector_1) * np.linalg.norm(vector_2)
+    angle = np.arccos(inner_product / norm)
+    return angle
 
 def coord_in_bound(bound, coord):
     bound_points = np.array(bound, dtype=np.float32).reshape(-1, 2)

@@ -212,10 +212,15 @@ class AllegroHandOperator(Operator):
             #     )
 
             
-            desired_joint_angles = self._get_3d_thumb_angles(
+            # desired_joint_angles = self._get_3d_thumb_angles(
+            #         thumb_joint_coords = hand_keypoints['thumb'],
+            #         curr_angles = desired_joint_angles,
+            # )
+            desired_joint_angles = self.finger_joint_solver.calculate_thumb_angles(
                     thumb_joint_coords = hand_keypoints['thumb'],
                     curr_angles = desired_joint_angles,
-            )
+                    moving_avg_arr = self.moving_average_queues['thumb']
+                )
 
             # self.last_desired_joint_angles = np.round(desired_joint_angles, 2)
             self.last_desired_joint_angles = desired_joint_angles
