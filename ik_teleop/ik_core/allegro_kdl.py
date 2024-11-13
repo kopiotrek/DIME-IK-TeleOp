@@ -35,7 +35,12 @@ class AllegroKDL(object):
         # Load or initialize the IK cache
         self.cache_file_path = "ik_cache.pkl"
         self.ik_cache = self.load_cache()
+        self.chains["thumb"].links.pop(5)
+        self.chains["thumb"].links.pop(4)
+        self.chains["thumb"].active_links_mask = np.delete(self.chains["thumb"].active_links_mask, 5)
+        self.chains["thumb"].active_links_mask = np.delete(self.chains["thumb"].active_links_mask, 4)
         self.last_knuckle_angles = [0.0, 0.43077692, 0.08167671, 0.81602719, 0.00001407, 0.0]
+
        
     def load_cache(self):
         # Load the cache from a file if it exists; otherwise, return an empty dictionary
@@ -93,7 +98,8 @@ class AllegroKDL(object):
             if len(seed) != self.hand_configs['joints_per_finger']:
                 print('Incorrect seed array length')
                 return 
-            seed = np.concatenate(([0.0], seed, [0.0]))
+            # seed = np.concatenate(([0.0], seed, [0.0]))
+            seed = np.concatenate(([0.0], seed))
             # seed[1] = 0.263
 
             # finger_info = self.finger_configs['links_info'][finger_type]
@@ -102,12 +108,15 @@ class AllegroKDL(object):
             # seed = [0] + seed + [0]
 
         # Check cache first
-        cache_key = (finger_type, tuple(tip_coord), tuple(seed))
+        cache_key = (tuple(tip_coord))
+        start_time = time.time()
         if cache_key in self.ik_cache:
             print("Cache used")
+            elapsed_time = time.time() - start_time
+            print(f"Time taken for cache_key: {elapsed_time:.6f} seconds")
+
             return self.ik_cache[cache_key][1:5]
         else:
-            start_time = time.time()
             output_angles = self.ik_with_timeout(self.chains[finger_type], tip_coord, seed)
             # output_angles = self.chains[finger_type].inverse_kinematics(
             #     tip_coord,
@@ -115,38 +124,48 @@ class AllegroKDL(object):
             #     orientation_mode=None,
             #     max_iter=1
             # )
-            elapsed_time = time.time() - start_time
-            print(f"Time taken for IK operation: {elapsed_time:.6f} seconds")
             self.ik_cache[cache_key] = output_angles
             self.save_cache()  # Update cache file after every IK computation
-            return output_angles[1:5]
+            return output_angles[1:4]
 
 
-    def ik_with_timeout(self, chain, tip_coord, seed, timeout=0.4):
+    def ik_with_timeout(self, chain, tip_coord, seed, timeout=2.4):
         # Wrapper to hold the result and control completion status
         result = {"angles": None, "completed": False}
-        # print(f"seed{seed}")
+        seed = np.delete(seed, 4)
+        # seed = np.delete(seed, 3)
+
+        print(f"seed{seed}")
+        print(f"tip_coord{tip_coord}")
+        tip_coord = list(tip_coord)  # Convert tuple to list
+        tip_coord[0] = tip_coord[0] * 0.5  # Modify the value
+        tip_coord = tuple(tip_coord)  # Convert back to tuple if necessary
+        print(f"tip_coord{tip_coord}")
         original_stdout = sys.stdout
         sys.stdout = StringIO()  # Redirect stdout to a dummy StringIO object
         def run_ik():
-            print(f"links{chain.links}")
-            print(f"active_links_mask{chain.active_links_mask}")
-            print(f"name{chain.name}")
+            # print(f"links{chain.links}")
+            # print(f"active_links_mask{chain.active_links_mask}")
+            # print(f"name{chain.name}")
             # print(f"urdf_metadata{chain.urdf_metadata}")
             result["angles"] = chain.inverse_kinematics(
                 tip_coord,
                 initial_position=seed,
                 orientation_mode=None,
-                max_iter=1,
-                regularization_parameter=0.005,
+                # max_iter=1,
+                # regularization_parameter=0.005
             )
             result["completed"] = True
-        sys.stdout = original_stdout  # Restore original stdout
+        sys.stdout = original_stdout
 
         # Start the IK calculation in a separate thread
         ik_thread = Thread(target=run_ik)
+        start_time = time.time()
         ik_thread.start()
         ik_thread.join(timeout)  # Wait for IK to complete or timeout
+        elapsed_time = time.time() - start_time
+        print(f"Time taken for IK operation: {elapsed_time:.6f} seconds")
+
         # print(f"tip_coord{tip_coord}")
         # print(f"seed{seed}")
         # print(f"result[angles]{result['angles']}")

@@ -120,15 +120,27 @@ class AllegroKDLControl(AllegroKinematicControl):
         moving_avg_arr, 
         curr_angles
     ):
-        tip_coord = finger_joint_coords[4]
+        tip_coord = finger_joint_coords[3]
+        # print(f"finger_joint_coords {finger_joint_coords}")
+
         curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)  
 
         # avg_finger_coords = moving_average(tip_coord, moving_avg_arr, self.time_steps)    
         calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, tip_coord, curr_finger_angles)
         
-        calc_finger_angles_no_ik = self.ajc.calculate_finger_angles(finger_type, finger_joint_coords, curr_angles, moving_avg_arr)
-        calc_finger_angles_no_ik[15]=calc_finger_angles_no_ik[15]*1.3
+
+        # calc_finger_angles_no_ik = self.ajc.calculate_finger_angles(finger_type, finger_joint_coords, curr_angles, moving_avg_arr)
+        # calc_finger_angles_no_ik[15]=calc_finger_angles_no_ik[15]*1.3
         # calc_finger_angles[-1] = calc_finger_angles_no_ik[15]
+
+        calc_finger_angles_no_ik = self.ajc.calculate_finger_angles(finger_type, finger_joint_coords, curr_angles, moving_avg_arr)
+        # print(f"calc_finger_angles {calc_finger_angles}")
+        # print(f"calc_finger_angles_no_ik {calc_finger_angles_no_ik}")
+        calc_finger_angles_no_ik[15]=calc_finger_angles_no_ik[15]*1.3
+
+        calc_finger_angles = np.insert(calc_finger_angles, 3, calc_finger_angles_no_ik[15])
+        # print(f"calc_finger_angles_insert {calc_finger_angles}")
+        # print(f"curr_finger_angles {curr_finger_angles}")
 
         desired_angles = np.array(copy(curr_angles))
 
