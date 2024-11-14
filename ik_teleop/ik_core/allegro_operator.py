@@ -105,6 +105,7 @@ class AllegroHandOperator(Operator):
         self.finger_coords = dict(
             # wrist = np.vstack([data[0], data[OCULUS_JOINTS['wrist']]]),
             wrist = np.vstack([data[0], np.array([[0.0, 0.0, 0.0]])]),
+            knuckles = np.vstack([data[0], data[OCULUS_JOINTS['knuckles']]]),
             index = np.vstack([data[0], data[OCULUS_JOINTS['index']]]),
             middle = np.vstack([data[0], data[OCULUS_JOINTS['middle']]]),
             ring = np.vstack([data[0], data[OCULUS_JOINTS['ring']]]),
@@ -217,6 +218,7 @@ class AllegroHandOperator(Operator):
             #         curr_angles = desired_joint_angles,
             # )
             desired_joint_angles = self.finger_joint_solver.calculate_thumb_angles(
+                    index_knuckle = hand_keypoints['knuckles'][1],
                     thumb_joint_coords = hand_keypoints['thumb'],
                     curr_angles = desired_joint_angles,
                     moving_avg_arr = self.moving_average_queues['thumb']
