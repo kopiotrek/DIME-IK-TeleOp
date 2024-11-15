@@ -46,4 +46,4 @@ time_steps: 1
 # linear_scaling_factors: [1.1, 1.1, 1.1]
 linear_scaling_factors: [1.0, 1.0, 1.0]
 
-rotatory_thumb_scaling_factors: [1.2, 10.0, 2.0, 3.0]
+rotatory_thumb_scaling_factors: [1.2, 5.0, 1.0, 2.0]
