@@ -48,14 +48,12 @@ class AllegroJointControl(AllegroKinematicControl):
 
         
         for idx in range(self.hand_configs['joints_per_finger']):
-                # print('config: ', self.finger_configs['links_info'][finger_type]['offset'])
                 desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = avg_finger_angles[idx]
                 
 
         for idx in range(1, 16):
             if desired_angles[idx] > 2.5:
                 desired_angles[idx] = 0
-        # print(f"desired_angles: {desired_angles}")
 
         return desired_angles 
 
@@ -67,7 +65,6 @@ class AllegroJointControl(AllegroKinematicControl):
 
         
         for idx in range(self.hand_configs['joints_per_finger']):
-                # print('config: ', self.finger_configs['links_info'][finger_type]['offset'])
                 desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = avg_finger_angles[idx-1]
                 
 
@@ -75,48 +72,37 @@ class AllegroJointControl(AllegroKinematicControl):
 
     def calculate_rotatory_joint_angle(self, finger_type, finger_joint_coords, knuckles_coords):
         if finger_type is 'index':
-            idx = 2
-            offset = 1.6
+            idx = 4
+            offset = 1.8
         elif finger_type is 'middle':
-            idx = 3
+            idx = 4
             offset = 1.8
         elif finger_type is 'ring':
             idx = 4
-            offset = 2.0
+            offset = 1.7
         origin = finger_joint_coords[1]
         vector_origin_to_joint = finger_joint_coords[2] - origin
         vector_origin_to_next_knuckle = knuckles_coords[idx] - origin
 
-
-
-        # Step 2: Create a Z-axis vector as the cross product of the two vectors
         z_axis = np.cross(vector_origin_to_next_knuckle, vector_origin_to_joint)
-        z_axis /= np.linalg.norm(z_axis)  # Normalize Z-axis vector
+        z_axis /= np.linalg.norm(z_axis)
 
-        # Step 3: Project vector_origin_to_index and vector_origin_to_thumb onto the XY plane
-        # The X-axis is aligned with vector_origin_to_index
         x_axis = vector_origin_to_next_knuckle / np.linalg.norm(vector_origin_to_next_knuckle)
-        y_axis = np.cross(z_axis, x_axis)  # Y-axis to complete the orthogonal basis
+        y_axis = np.cross(z_axis, x_axis)
 
-        # Step 4: Construct rotation matrix from these axes
         rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
 
-        # Step 5: Calculate the angle between the projected vectors around the Z-axis
         vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_joint)
         angle = np.arctan2(vector_in_plane[1], vector_in_plane[0]) - offset
-        # print(f"angle {angle}")
         return angle
 
-
     def calculate_finger_angles(self, finger_type, finger_joint_coords, knuckles_coords, curr_angles, moving_avg_arr):
-        # print(f"finger_joint_coords: {finger_joint_coords}")
         translatory_angles = []
-        # print(f"[finger_type]: {finger_type}")
-        # rotatory_joint_angle = self.calculate_rotatory_joint_angle(finger_type, finger_joint_coords, knuckles_coords)
-        rotatory_joint_angle = 0.0
+        rotatory_joint_angle = self.calculate_rotatory_joint_angle(finger_type, finger_joint_coords, knuckles_coords)
+        # rotatory_joint_angle = 0.0
         translatory_angles.append(rotatory_joint_angle * self.linear_scaling_factors[0])
 
-        for idx in range(self.hand_configs['joints_per_finger']-1): # Ignoring the rotatory joint
+        for idx in range(self.hand_configs['joints_per_finger']-1):
             
             
             angle = calculate_angle(
@@ -124,12 +110,9 @@ class AllegroJointControl(AllegroKinematicControl):
                 finger_joint_coords[idx + 1],
                 finger_joint_coords[idx + 2]
             )
-            # print(f"Calculated angle for joint {idx}: {angle}")
             translatory_angles.append(angle * self.linear_scaling_factors[idx])
 
-        # calc_finger_angles = rotatory_angle + translatory_angles
         calc_finger_angles = translatory_angles
-        # calc_finger_angles = [3.0] + translatory_angles
         filtered_angles = self._get_filtered_angles(finger_type, calc_finger_angles, curr_angles, moving_avg_arr)
         return filtered_angles
 
@@ -138,9 +121,6 @@ class AllegroJointControl(AllegroKinematicControl):
         origin = thumb_joint_coords[1]
         reference_point = thumb_joint_coords[1].copy()
         reference_point[2] += 10.0
-        # print(f"origin {origin}")
-        # print(f"reference_point {reference_point}")
-        # print(f"thumb_joint_coords[2] {thumb_joint_coords[2]}")
 
         vector_origin_to_index = reference_point - origin
         vector_origin_to_thumb = thumb_joint_coords[2] - origin
@@ -168,29 +148,19 @@ class AllegroJointControl(AllegroKinematicControl):
 
 
     def calculate_joint_3_angle(self, thumb_joint_coords):
-        # 1. Create plane A crossing index_knuckle,thumb_joint_coords[0],thumb_joint_coords[2]
-        #    origin point in thumb_joint_coords[0], X axis pointing index_knuckle, Z axis being vector multiplication
-        #    of vector origin->index_knuckle and vector origin->thumb_joint_coords[2]
-        # 3. Calculate angle between index_knuckle,thumb_joint_coords[0],thumb_joint_coords[2] around Z axis
-        # Step 1: Define origin and vectors for the plane
         origin = thumb_joint_coords[3]
 
         vector_origin_to_tip = thumb_joint_coords[4] - origin
         vector_origin_to_joint = thumb_joint_coords[2] - origin
 
-        # Step 2: Create a Z-axis vector as the cross product of the two vectors
         z_axis = np.cross(vector_origin_to_tip, vector_origin_to_joint)
-        z_axis /= np.linalg.norm(z_axis)  # Normalize Z-axis vector
+        z_axis /= np.linalg.norm(z_axis)
 
-        # Step 3: Project vector_origin_to_index and vector_origin_to_thumb onto the XY plane
-        # The X-axis is aligned with vector_origin_to_index
         x_axis = vector_origin_to_tip / np.linalg.norm(vector_origin_to_tip)
-        y_axis = np.cross(z_axis, x_axis)  # Y-axis to complete the orthogonal basis
+        y_axis = np.cross(z_axis, x_axis)
 
-        # Step 4: Construct rotation matrix from these axes
         rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
 
-        # Step 5: Calculate the angle between the projected vectors around the Z-axis
         vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_joint)
         angle = 3.14 - np.arctan2(vector_in_plane[1], vector_in_plane[0])
         if angle < 0:
@@ -200,29 +170,18 @@ class AllegroJointControl(AllegroKinematicControl):
 
     def calculate_joint_2_angle(self, thumb_joint_coords):
 
-        # angle = calculate_angle(
-        #     thumb_joint_coords[2],
-        #     thumb_joint_coords[0],
-        #     index_knuckle
-        # )
-
         origin = thumb_joint_coords[2]
         vector_origin_to_joint_2 = thumb_joint_coords[3] - origin
         vector_origin_to_joint_0 = thumb_joint_coords[1] - origin
 
-        # Step 2: Create a Z-axis vector as the cross product of the two vectors
         z_axis = np.cross(vector_origin_to_joint_2, vector_origin_to_joint_0)
-        z_axis /= np.linalg.norm(z_axis)  # Normalize Z-axis vector
+        z_axis /= np.linalg.norm(z_axis)
 
-        # Step 3: Project vector_origin_to_index and vector_origin_to_thumb onto the XY plane
-        # The X-axis is aligned with vector_origin_to_index
         x_axis = vector_origin_to_joint_2 / np.linalg.norm(vector_origin_to_joint_2)
-        y_axis = np.cross(z_axis, x_axis)  # Y-axis to complete the orthogonal basis
+        y_axis = np.cross(z_axis, x_axis)
 
-        # Step 4: Construct rotation matrix from these axes
         rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
 
-        # Step 5: Calculate the angle between the projected vectors around the Z-axis
         vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_joint_0)
         angle = np.arctan2(vector_in_plane[1], vector_in_plane[0])
 
@@ -277,7 +236,6 @@ class AllegroJointControl(AllegroKinematicControl):
         # print(f"filtered_angles {filtered_angles}")
         return filtered_angles
 
-
 class AllegroKDLControl(AllegroKinematicControl):
     def __init__(self,  bounded_angles = True):
         super().__init__(bounded_angles)
@@ -292,11 +250,9 @@ class AllegroKDLControl(AllegroKinematicControl):
         curr_angles
     ):
         tip_coord = finger_joint_coords[3]
-        # print(f"finger_joint_coords {finger_joint_coords}")
 
         curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)  
 
-        # avg_finger_coords = moving_average(tip_coord, moving_avg_arr, self.time_steps)    
         calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, tip_coord, curr_finger_angles)
 
         desired_angles = np.array(copy(curr_angles))
@@ -311,7 +267,6 @@ class AllegroKDLControl(AllegroKinematicControl):
             for idx in range(self.hand_configs['joints_per_finger']):
                 desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = calc_finger_angles[idx]
 
-        # print(f"desired_angles{desired_angles}")
         return desired_angles 
 
     def finger_1D_motion(
@@ -434,37 +389,6 @@ class AllegroKDLControl(AllegroKinematicControl):
         desired_angles = self.calculate_desired_angles('thumb', transformed_coords, moving_avg_arr, curr_angles)
         return desired_angles
 
-
-    # def thumb_motion_3D(
-    #     self, 
-    #     hand_coordinates, 
-    #     xy_hand_bounds,  # Now a list of points, not a Polygon
-    #     yz_robot_bounds, 
-    #     z_hand_bound, 
-    #     x_robot_bound, 
-    #     moving_avg_arr, 
-    #     curr_angles
-    # ):
-    #     # Apply perspective transformation to obtain robot coordinates
-    #     y_robot_coord, z_robot_coord = perspective_transform(
-    #         hand_coordinates[:2],  # 2D hand coordinates (x, y)
-    #         xy_hand_bounds,  # Ensure this is in the correct format (np.float32)
-    #         yz_robot_bounds
-    #     )
-        
-    #     # Perform a linear transform for the z-axis
-    #     x_robot_coord = linear_transform(hand_coordinates[2], z_hand_bound, x_robot_bound)
-        
-    #     # Combine the transformed coordinates
-    #     transformed_coords = [x_robot_coord, y_robot_coord, z_robot_coord]
-        
-    #     # Compute the desired joint angles based on the transformed coordinates
-    #     return self.calculate_desired_angles(
-    #         'thumb', 
-    #         transformed_coords, 
-    #         moving_avg_arr, 
-    #         curr_angles
-    #     )
 
     def thumb_motion_3D(
         self, 

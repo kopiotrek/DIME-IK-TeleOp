@@ -33,19 +33,8 @@ class AllegroKDL(object):
                 name = finger
             )
         # Load or initialize the IK cache
-        self.cache_file_path = "ik_cache.pkl"
-        self.ik_cache = self.load_cache()
         self.last_knuckle_angles = [0.0, 0.43077692, 0.08167671, 0.81602719, 0.00001407, 0.0]
 
-       
-    def load_cache(self):
-        # Load the cache from a file if it exists; otherwise, return an empty dictionary
-        if os.path.exists(self.cache_file_path):
-            with open(self.cache_file_path, "rb") as file:
-                print("Loading IK cache from file.")
-                return pickle.load(file)
-        print("Initializing new IK cache.")
-        return {}
 
     def save_cache(self):
         # Save the cache to a file

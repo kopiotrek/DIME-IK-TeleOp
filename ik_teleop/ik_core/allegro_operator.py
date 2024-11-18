@@ -58,19 +58,19 @@ class AllegroHandOperator(Operator):
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.263, 0.0, 0.0, 0.0])
 
         # Calibrating to get the thumb bounds
-        self._calibrate_bounds()
+        # self._calibrate_bounds()
 
         # Getting the bounds for the allegro hand
         allegro_bounds_path = get_path_in_package('configs/allegro.yaml')
         self.allegro_bounds = get_yaml_data(allegro_bounds_path)
 
-        self._timer = FrequencyTimer(VR_FREQ)
+        # self._timer = FrequencyTimer(VR_FREQ)
 
-        # Using 3 dimensional thumb motion or two dimensional thumb motion
-        if self.finger_configs.get('three_dim'):
-            self.thumb_angle_calculator = self._get_3d_thumb_angles
-        else:
-            self.thumb_angle_calculator = self._get_2d_thumb_angles
+        # # Using 3 dimensional thumb motion or two dimensional thumb motion
+        # if self.finger_configs.get('three_dim'):
+        #     self.thumb_angle_calculator = self._get_3d_thumb_angles
+        # else:
+        #     self.thumb_angle_calculator = self._get_2d_thumb_angles
 
     @property
     def timer(self):
