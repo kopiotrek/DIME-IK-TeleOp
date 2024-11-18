@@ -190,9 +190,13 @@ class AllegroHandOperator(Operator):
             hand_keypoints = self.finger_coords
             desired_joint_angles = self.last_desired_joint_angles
             
+            # print(f"hand_keypoints['index'] {hand_keypoints['index']}")
+            # print(f"hand_keypoints['knuckles'], {hand_keypoints['knuckles'],}")
+
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'index',
                     finger_joint_coords = hand_keypoints['index'],
+                    knuckles_coords = hand_keypoints['knuckles'],
                     curr_angles = desired_joint_angles,
                     moving_avg_arr = self.moving_average_queues['index']
                 )
@@ -200,6 +204,7 @@ class AllegroHandOperator(Operator):
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'middle',
                     finger_joint_coords = hand_keypoints['middle'],
+                    knuckles_coords = hand_keypoints['knuckles'],
                     curr_angles = desired_joint_angles,
                     moving_avg_arr = self.moving_average_queues['middle']
                 )
@@ -208,6 +213,7 @@ class AllegroHandOperator(Operator):
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'ring',
                     finger_joint_coords = hand_keypoints['ring'],
+                    knuckles_coords = hand_keypoints['knuckles'],
                     curr_angles = desired_joint_angles,
                     moving_avg_arr = self.moving_average_queues['ring']
                 )

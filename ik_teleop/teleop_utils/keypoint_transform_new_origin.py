@@ -94,7 +94,6 @@ class TransformHandPositionCoords():
         chain_length=math.dist(coords[0],coords[5])
 
         scale = target_length/chain_length
-        print(scale)
 
         # Scale each segment of the finger
         for i in range(len(coords)):
@@ -130,7 +129,6 @@ class TransformHandPositionCoords():
 
     def transform_keypoints(self, hand_coords):
         translated_coords = self._translate_coords(hand_coords)
-        print("D1")
         translated_coords = self.normalize_finger_length(translated_coords)
         original_coord_frame = self._get_coord_frame(
             translated_coords[self.reframe_keypoints[0]], 
@@ -163,11 +161,11 @@ class TransformHandPositionCoords():
     def visualize_3d(self, kpts3d):
         """Visualize the keypoints for a single frame with angles between consecutive points."""
         kpts3d_rotated = np.array([kpt for kpt in kpts3d])
-    
+
         # Clear plot axes for each frame and replot
         self.ax.cla()
         self.setup_plot()
-    
+
         # Plot each finger (as before)
         for finger, finger_color in zip(self.fingers, self.fingers_colors):
             for _c in finger:
@@ -177,30 +175,30 @@ class TransformHandPositionCoords():
                     [kpts3d_rotated[_c[0], 2], kpts3d_rotated[_c[1], 2]],
                     linewidth=4, color=finger_color
                 )
-    
+
         # Define points and calculate angles between them
         points = [kpts3d_rotated[i] for i in range(5)]
-    
+
         # Loop through consecutive triplets of points to calculate angles
         for i in range(3):
             p1, p2, p3 = points[i], points[i + 1], points[i + 2]
-    
+
             # Calculate vectors and the angle between them
             vec1 = p1 - p2
             vec2 = p3 - p2
             angle = self.angle_between_vectors(vec1, vec2)
-    
+
             # Midpoint between p1 and p3 to display angle
             mid_point = (p1 + p3) / 2
             self.ax.text(mid_point[0], mid_point[1], mid_point[2], f'{angle:.2f} rad', color='black', fontsize=10)
-    
+
         # Plot individual keypoints (optional visualization)
         for idx, point in enumerate(points):
             self.ax.scatter([point[0]], [point[1]], [point[2]], color=self.fingers_colors[idx % len(self.fingers_colors)], s=50)
-    
+
         plt.draw()
         plt.pause(0.01)
-    
+
 
     def stream(self):
         while not rospy.is_shutdown():
