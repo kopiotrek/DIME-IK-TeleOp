@@ -19,4 +19,6 @@ ik_teleop/temp_script.py
 # Hiding Hydra outputs
 outputs/*
 
-log/*
+log/*ik_teleop/teleop_utils/output_cap1.avi
+ik_teleop/teleop_utils/output_cap0.avi
+ik_teleop/teleop_utils/hand recordings.zip
