@@ -4,6 +4,9 @@ from copy import deepcopy as copy
 from .allegro_kdl import AllegroKDL
 from  ik_teleop.teleop_utils.files import *
 from  ik_teleop.teleop_utils.vectorops import *
+import time
+import matplotlib.pyplot as plt
+from mpl_toolkits.mplot3d import Axes3D
 
 
 class AllegroKinematicControl(ABC):
@@ -36,124 +39,260 @@ class AllegroJointControl(AllegroKinematicControl):
         np.set_printoptions(suppress = True)
 
         self.linear_scaling_factors = self.bound_info['linear_scaling_factors']
-        self.rotatory_scaling_factors = self.bound_info['rotatory_scaling_factors']
-
-    def __init__(self, bounded_angles = True):
-        super().__init__(bounded_angles)
-        np.set_printoptions(suppress = True)
-
-        self.linear_scaling_factors = self.bound_info['linear_scaling_factors']
-        self.rotatory_scaling_factors = self.bound_info['rotatory_scaling_factors']
+        self.rotatory_thumb_scaling_factors = self.bound_info['rotatory_thumb_scaling_factors']
 
     def _get_filtered_angles(self, finger_type, calc_finger_angles, curr_angles, moving_avg_arr):
-        # print(f"curr_angles: {curr_angles}")
-        # print(f"moving_avg_arr: {moving_avg_arr}")
+        curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)
+        avg_finger_angles = moving_average(calc_finger_angles, moving_avg_arr, self.time_steps)       
+        desired_angles = np.array(copy(curr_angles))
+
+        
+        for idx in range(self.hand_configs['joints_per_finger']):
+                desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = avg_finger_angles[idx]
+                
+
+        for idx in range(1, 16):
+            if desired_angles[idx] > 2.5:
+                desired_angles[idx] = 0
+
+        return desired_angles 
+
+    def _get_filtered_thumb_angles(self, finger_type, calc_finger_angles, curr_angles, moving_avg_arr):
         
         curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)
         avg_finger_angles = moving_average(calc_finger_angles, moving_avg_arr, self.time_steps)       
         desired_angles = np.array(copy(curr_angles))
 
         
-        # # Applying angular bounds
-        # if self.bounded_angles is True:
-        #     #print(avg_finger_angles)
-        #     #print(curr_finger_angles)
-        #     print(f"avg_finger_angles: {avg_finger_angles}")
-        #     print(f"curr_finger_angles: {curr_finger_angles}")
-        #     del_finger_angles = avg_finger_angles - curr_finger_angles[1:]  # Ignore the first element of curr_finger_angles
-        #     print(f"del_finger_angles: {del_finger_angles}")
-        #     print(f"self.bounds[finger_type]: {self.bounds[finger_type]}")
-        #     print(f"self.bounds[finger_type]: {self.bounds[finger_type]}")
-        #     print(f"[finger_type]: {finger_type}")
-
-        #     # clipped_del_finger_angles = np.clip(del_finger_angles, - self.bounds[finger_type], self.bounds[finger_type])
-        #     for idx in range(self.hand_configs['joints_per_finger']-1):
-        #         clipped_del_finger_angles = np.clip(del_finger_angles[idx], - self.bounds[finger_type][idx], self.bounds[finger_type][idx])
-        #     print(f"clipped_del_finger_angles: {clipped_del_finger_angles}")
-
-        #     for idx in range(1, self.hand_configs['joints_per_finger']):
-        #         desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] += clipped_del_finger_angles[idx-1]
-        # else:
-        for idx in range(1, self.hand_configs['joints_per_finger']):
-                # print('config: ', self.finger_configs['links_info'][finger_type]['offset'])
+        for idx in range(self.hand_configs['joints_per_finger']):
                 desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = avg_finger_angles[idx-1]
                 
 
-        for idx in range(1, 16):
-            if desired_angles[idx] > 2.5:
-                desired_angles[idx] = 0
-        # print(f"desired_angles: {desired_angles}")
-
         return desired_angles 
 
-    def calculate_finger_angles(self, finger_type, finger_joint_coords, curr_angles, moving_avg_arr):
-        # print(f"finger_joint_coords: {finger_joint_coords}")
-        translatory_angles = []
-        # print(f"[finger_type]: {finger_type}")
+    # def calculate_rotatory_joint_angle(self, finger_type, finger_joint_coords, knuckles_coords):
+    #     if finger_type is 'index':
+    #         idx = 4
+    #         offset = 1.8
+    #     elif finger_type is 'middle':
+    #         idx = 4
+    #         offset = 1.8
+    #     elif finger_type is 'ring':
+    #         idx = 4
+    #         offset = 1.7
+    #     origin = finger_joint_coords[1]
+    #     vector_origin_to_joint = finger_joint_coords[2] - origin
+    #     vector_origin_to_next_knuckle = knuckles_coords[idx] - origin
 
-        for idx in range(self.hand_configs['joints_per_finger']-1): # Ignoring the rotatory joint
-        # for idx in range(self.hand_configs['joints_per_finger'] - 2, -1, -1):
-         # Loop body
+    #     z_axis = np.cross(vector_origin_to_next_knuckle, vector_origin_to_joint)
+    #     z_axis /= np.linalg.norm(z_axis)
 
-            # print(f"Points for joint {idx}:")
-            # print(f"point1: {finger_joint_coords[idx]}")
-            # print(f"point2: {finger_joint_coords[idx + 1]}")
-            # print(f"point3: {finger_joint_coords[idx + 2]}")
-            
-            
+    #     x_axis = vector_origin_to_next_knuckle / np.linalg.norm(vector_origin_to_next_knuckle)
+    #     y_axis = np.cross(z_axis, x_axis)
+
+    #     rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
+
+    #     vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_joint)
+    #     angle = np.arctan2(vector_in_plane[1], vector_in_plane[0]) - offset
+    #     return angle
+
+    def calculate_rotatory_joint_angle(self, finger_type, finger_joint_coords, metacarpals_coords):
+        if finger_type == 'index':
+            idx = 1
+        elif finger_type == 'middle':
+            idx = 2
+        elif finger_type == 'ring':
+            idx = 3
+        origin = finger_joint_coords[0]
+        vector_origin_to_joint = finger_joint_coords[1] - origin
+        vector_origin_to_metacarpal = metacarpals_coords[idx] - origin
+
+        z_axis = np.cross(vector_origin_to_metacarpal, vector_origin_to_joint)
+        z_axis /= np.linalg.norm(z_axis)
+
+        x_axis = vector_origin_to_metacarpal / np.linalg.norm(vector_origin_to_metacarpal)
+        y_axis = np.cross(z_axis, x_axis)
+
+        rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
+
+        vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_joint)
+        angle = np.arctan2(vector_in_plane[1], vector_in_plane[0])
+        
+        print(f"rotatory_joint_angle {angle} for finger {finger_type}")
+
+        return angle
+
+
+    def calculate_finger_angles(self, finger_type, finger_joint_coords, metacarpals_coords, curr_angles, moving_avg_arr):
+        calc_finger_angles = []
+        # rotatory_joint_angle = self.calculate_rotatory_joint_angle(finger_type, finger_joint_coords, metacarpals_coords)
+        rotatory_joint_angle = 0.0
+        calc_finger_angles.append(rotatory_joint_angle * self.linear_scaling_factors[0])
+        if finger_type == 'index':
+            idx = 1
+        elif finger_type == 'middle':
+            idx = 2
+        elif finger_type == 'ring':
+            idx = 3
+        angle = calculate_angle(
+            metacarpals_coords[idx],
+            finger_joint_coords[1],
+            finger_joint_coords[2]
+        )
+        # print(f"finger_joint_coords {finger_joint_coords}")
+
+        calc_finger_angles.append(angle * self.linear_scaling_factors[idx])
+        for idx in range(1, self.hand_configs['joints_per_finger']-1):
+            # print(f"finger_joint_coords{idx} {finger_joint_coords[idx]}")
+
             angle = calculate_angle(
+                finger_joint_coords[idx - 1],
                 finger_joint_coords[idx],
-                finger_joint_coords[idx + 1],
-                finger_joint_coords[idx + 2]
+                finger_joint_coords[idx + 1]
             )
-            # print(f"Calculated angle for joint {idx}: {angle}")
-            translatory_angles.append(angle * self.linear_scaling_factors[idx])
+            calc_finger_angles.append(angle * self.linear_scaling_factors[idx])
 
-        # rotatory_angle = [self.calculate_finger_rotation(finger_joint_coords) * self.rotatory_scaling_factors[finger_type]] 
-        # print(f"translatory_angles: {translatory_angles}")
-        # print(f"rotatory_angle: {rotatory_angle}")
-        # translatory_angles: [3.357044255962196, 0.04035115136001469, 0.09472101556464771]
-        # rotatory_angle: [0.06283185307179587]
-
-        # calc_finger_angles = rotatory_angle + translatory_angles
-        calc_finger_angles = translatory_angles
-        # calc_finger_angles = [3.0] + translatory_angles
         filtered_angles = self._get_filtered_angles(finger_type, calc_finger_angles, curr_angles, moving_avg_arr)
         return filtered_angles
 
+    def calculate_joint_1_angle(self, thumb_joint_coords):
 
-    # def calculate_finger_rotation(self, finger_joint_coords):
-    #     # print(finger_joint_coords)
-    #     angle = calculate_angle(finger_joint_coords[0], finger_joint_coords[1], finger_joint_coords[2])
+        origin = thumb_joint_coords[1]
+        reference_point = thumb_joint_coords[1].copy()
+        reference_point[2] += 1
+
+        vector_origin_to_index = reference_point - origin
+        vector_origin_to_thumb = thumb_joint_coords[2] - origin
+
+        if np.linalg.norm(vector_origin_to_index) == 0 or np.linalg.norm(vector_origin_to_thumb) == 0:
+            print("One of the vectors is zero, unable to compute angle.")
+            return np.nan
+
+        z_axis = np.cross(vector_origin_to_index, vector_origin_to_thumb)
+        if np.linalg.norm(z_axis) == 0:
+            print("Cross product resulted in zero vector; vectors might be parallel.")
+            return np.nan
+
+        z_axis /= np.linalg.norm(z_axis)
+        x_axis = vector_origin_to_index / np.linalg.norm(vector_origin_to_index)
+        y_axis = np.cross(z_axis, x_axis)
+
+        rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
+
+        vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_thumb)
+
+        angle = np.arctan2(vector_in_plane[1], vector_in_plane[0])
+
+        return angle
+
+
+    def calculate_joint_3_angle(self, thumb_joint_coords):
+        origin = thumb_joint_coords[2]
+
+        vector_origin_to_tip = thumb_joint_coords[3] - origin
+        vector_origin_to_joint = thumb_joint_coords[1] - origin
+
+        z_axis = np.cross(vector_origin_to_tip, vector_origin_to_joint)
+        z_axis /= np.linalg.norm(z_axis)
+
+        x_axis = vector_origin_to_tip / np.linalg.norm(vector_origin_to_tip)
+        y_axis = np.cross(z_axis, x_axis)
+
+        rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
+
+        vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_joint)
+        angle = 3.14 - np.arctan2(vector_in_plane[1], vector_in_plane[0])
+        if angle < 0:
+            angle = 0
+        return angle
+
+
+    def calculate_joint_2_angle(self, thumb_joint_coords):
+
+        origin = thumb_joint_coords[2]
+        vector_origin_to_joint_2 = thumb_joint_coords[3] - origin
+        vector_origin_to_joint_0 = thumb_joint_coords[1] - origin
+
+        z_axis = np.cross(vector_origin_to_joint_2, vector_origin_to_joint_0)
+        z_axis /= np.linalg.norm(z_axis)
+
+        x_axis = vector_origin_to_joint_2 / np.linalg.norm(vector_origin_to_joint_2)
+        y_axis = np.cross(z_axis, x_axis)
+
+        rotation_matrix = np.column_stack((x_axis, y_axis, z_axis))
+
+        vector_in_plane = np.dot(rotation_matrix.T, vector_origin_to_joint_0)
+        angle = np.arctan2(vector_in_plane[1], vector_in_plane[0])
+
+        return 3.14-angle
+
+    def calculate_thumb_angles(self, index_knuckle, thumb_joint_coords, curr_angles, moving_avg_arr):
+
+        calc_finger_angles = []
+        # joint 1
+        angle = self.calculate_joint_1_angle(thumb_joint_coords)
+        print(f"angle1 {angle}")
+        # angle = -0.105
+        # angle = 2.0
+        angle -= 2.3
+        # print(f"angle1 {angle}")
+        # time.sleep(0.1)
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[1])
         
-    #     # Checking if the finger tip is on the left side or the right side of the knuckle
-    #     knuckle_vector = finger_joint_coords[1] - finger_joint_coords[0]
-    #     tip_vector = finger_joint_coords[-1] - finger_joint_coords[0]
-    #     knuckle_vector_slope = knuckle_vector[1] / knuckle_vector[0]
-    #     tip_vector_slope = tip_vector[1] / tip_vector[0]
+        # joint 2
+        angle = self.calculate_joint_2_angle(thumb_joint_coords)
+        # angle = -0.189
+        # angle = 1.644
+        angle += 0.2
+        # print(f"angle2 {angle}")
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[2])
 
-    #     if knuckle_vector_slope > tip_vector_slope:
-    #         return angle
-    #     else:
-    #         return -1 * angle
 
+        # joint 3
+        angle = self.calculate_joint_3_angle(thumb_joint_coords)
+        # angle = -0.162
+        # angle = 1.719
+        angle -= 0.2
+        # print(f"angle3 {angle}")
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[3])
+        
+        # joint 0
+        # 1.7 open - 2.2 closed
+        # robot: 0.263 - 1.396
+
+        angle = -calculate_angle_z(
+            [1.0,0.0,0.0],
+            [0.0,0.0,0.0],
+            thumb_joint_coords[1]
+        )
+        # angle = 0.263
+        # angle = 1.396
+        angle += 2.8
+        # print(f"angle0 {angle}")
+        calc_finger_angles.append(angle * self.rotatory_thumb_scaling_factors[0])
+
+        filtered_angles = self._get_filtered_thumb_angles("thumb", calc_finger_angles, curr_angles, moving_avg_arr)
+        # print(f"filtered_angles {filtered_angles}")
+        return filtered_angles
 
 class AllegroKDLControl(AllegroKinematicControl):
     def __init__(self,  bounded_angles = True):
         super().__init__(bounded_angles)
         self.solver = AllegroKDL()
+        self.ajc = AllegroJointControl()
 
     def calculate_desired_angles(
         self, 
         finger_type, 
-        transformed_coords, 
+        finger_joint_coords, 
         moving_avg_arr, 
         curr_angles
     ):
-        curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)        
-        avg_finger_coords = moving_average(transformed_coords, moving_avg_arr, self.time_steps)    
-        calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, avg_finger_coords, curr_finger_angles)
-        
+        tip_coord = finger_joint_coords[3]
+
+        curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)  
+
+        calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, tip_coord, curr_finger_angles)
 
         desired_angles = np.array(copy(curr_angles))
 
@@ -166,7 +305,6 @@ class AllegroKDLControl(AllegroKinematicControl):
         else:
             for idx in range(self.hand_configs['joints_per_finger']):
                 desired_angles[self.finger_configs['links_info'][finger_type]['offset'] + idx] = calc_finger_angles[idx]
-
 
         return desired_angles 
 
@@ -195,7 +333,7 @@ class AllegroKDLControl(AllegroKinematicControl):
     def finger_2D_motion(
         self, 
         finger_type, 
-        hand_x_val, 
+        hand_x_val,
         hand_y_val, 
         robot_x_val, 
         x_hand_bound, 
@@ -293,31 +431,14 @@ class AllegroKDLControl(AllegroKinematicControl):
 
     def thumb_motion_3D(
         self, 
-        hand_coordinates, 
-        xy_hand_bounds,  # Now a list of points, not a Polygon
-        yz_robot_bounds, 
-        z_hand_bound, 
-        x_robot_bound, 
+        thumb_joint_coords, 
         moving_avg_arr, 
         curr_angles
     ):
-        # Apply perspective transformation to obtain robot coordinates
-        y_robot_coord, z_robot_coord = perspective_transform(
-            hand_coordinates[:2],  # 2D hand coordinates (x, y)
-            xy_hand_bounds,  # Ensure this is in the correct format (np.float32)
-            yz_robot_bounds
-        )
-        
-        # Perform a linear transform for the z-axis
-        x_robot_coord = linear_transform(hand_coordinates[2], z_hand_bound, x_robot_bound)
-        
-        # Combine the transformed coordinates
-        transformed_coords = [x_robot_coord, y_robot_coord, z_robot_coord]
-        
         # Compute the desired joint angles based on the transformed coordinates
         return self.calculate_desired_angles(
             'thumb', 
-            transformed_coords, 
+            thumb_joint_coords, 
             moving_avg_arr, 
             curr_angles
         )

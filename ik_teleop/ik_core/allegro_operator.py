@@ -1,7 +1,7 @@
 from copy import deepcopy as copy
 from .operator import Operator
 import rospy
-from std_msgs.msg import Float64MultiArray
+from geometry_msgs.msg import PoseArray, Pose
 
 from shapely.geometry import Point, Polygon 
 from shapely.ops import nearest_points
@@ -9,7 +9,7 @@ from ik_teleop.ik_core.allegro_calibrator import OculusThumbBoundCalibrator
 # from ik_teleop.ik_core.allegro import AllegroHand
 from ik_teleop.ik_core.allegro_retargeters import AllegroKDLControl, AllegroJointControl
 from ik_teleop.teleop_utils.files import *
-from ik_teleop.teleop_utils.vectorops import coord_in_bound
+from ik_teleop.teleop_utils.vectorops import *
 from ik_teleop.teleop_utils.timer import FrequencyTimer
 from ik_teleop.teleop_utils.constants import *
 
@@ -34,11 +34,16 @@ class AllegroHandOperator(Operator):
                 rospy.init_node('allegro_hand_operator')
             except rospy.ROSInterruptException:
                 pass
-        self._transformed_hand_keypoint_subscriber = rospy.Subscriber('transformed_hand_coords', Float64MultiArray, callback=self._get_finger_coords, queue_size=1)
-
+        self._transformed_hand_keypoint_subscriber = rospy.Subscriber('XR/JointPoseArray', PoseArray, callback=self._get_joints_poses, queue_size=1)
+        JOINT_COUNT = 26
         # Initializing the  finger configs
         self.finger_configs = finger_configs
-        
+        # self.finger_poses_array = []
+        self.finger_coords = []
+        # for i in range(OCULUS_NUM_KEYPOINTS):
+        #     pose = Pose()
+        #     self.finger_poses.poses.append(pose)
+
         #Initializing the solvers for allegro hand
         self.fingertip_solver = AllegroKDLControl()
         self.finger_joint_solver = AllegroJointControl()
@@ -53,21 +58,25 @@ class AllegroHandOperator(Operator):
             'middle': [],
             'ring': []
         }
+        self.knuckle_points = (OCULUS_JOINTS['knuckles'][3], OCULUS_JOINTS['knuckles'][0])
+
+        self.last_desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
+            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.263, 0.0, 0.0, 0.0])
 
         # Calibrating to get the thumb bounds
-        self._calibrate_bounds()
+        # self._calibrate_bounds()
 
         # Getting the bounds for the allegro hand
         allegro_bounds_path = get_path_in_package('configs/allegro.yaml')
         self.allegro_bounds = get_yaml_data(allegro_bounds_path)
 
-        self._timer = FrequencyTimer(VR_FREQ)
+        # self._timer = FrequencyTimer(VR_FREQ)
 
-        # Using 3 dimensional thumb motion or two dimensional thumb motion
-        if self.finger_configs.get('three_dim'):
-            self.thumb_angle_calculator = self._get_3d_thumb_angles
-        else:
-            self.thumb_angle_calculator = self._get_2d_thumb_angles
+        # # Using 3 dimensional thumb motion or two dimensional thumb motion
+        # if self.finger_configs.get('three_dim'):
+        #     self.thumb_angle_calculator = self._get_3d_thumb_angles
+        # else:
+        #     self.thumb_angle_calculator = self._get_2d_thumb_angles
 
     @property
     def timer(self):
@@ -94,19 +103,90 @@ class AllegroHandOperator(Operator):
     def _calibrate_bounds(self):
         calibrator = OculusThumbBoundCalibrator()
         self.hand_thumb_bounds = calibrator.get_bounds() # Provides [thumb-index bounds, index-middle bounds, middle-ring-bounds]
-        print(f'THUMB BOUNDS IN THE OPERATOR: {self.hand_thumb_bounds}')
+        # print(f'THUMB BOUNDS IN THE OPERATOR: {self.hand_thumb_bounds}')
 
-    # Get the transformed finger coordinates
-    def _get_finger_coords(self,msg):
-        data = np.array(msg.data).reshape(21, 3)
-        self.finger_coords = dict(
-            # wrist = np.vstack([data[0], data[OCULUS_JOINTS['wrist']]]),
-            wrist = np.vstack([data[0], np.array([[0.0, 0.0, 0.0]])]),
-            index = np.vstack([data[0], data[OCULUS_JOINTS['index']]]),
-            middle = np.vstack([data[0], data[OCULUS_JOINTS['middle']]]),
-            ring = np.vstack([data[0], data[OCULUS_JOINTS['ring']]]),
-            thumb =  np.vstack([data[0], data[OCULUS_JOINTS['thumb']]])
+    def position_to_array(self, position):
+        return np.array([position.x, position.y, position.z])
+
+    # Get the joints poses
+    def _get_joints_poses(self, msg):
+        finger_coords_array = []
+        if len(msg.poses) < OCULUS_NUM_KEYPOINTS:
+            print("ERROR: not enough joints received")
+            return
+        for i in range(OCULUS_NUM_KEYPOINTS):
+            # finger_poses_array.append(msg.poses[i])
+            finger_coords_array.append(self.position_to_array(msg.poses[i].position))     
+        finger_coords_array_np = np.array(finger_coords_array)
+
+        self.transform_keypoints(finger_coords_array_np)
+
+
+        # self.finger_coords = dict(
+        #     wrist = finger_coords_array_np[OCULUS_JOINTS['wrist']],
+        #     palm = finger_coords_array_np[OCULUS_JOINTS['palm']],
+        #     thumb = finger_coords_array_np[OCULUS_JOINTS['thumb']],
+        #     index = finger_coords_array_np[OCULUS_JOINTS['index']],
+        #     middle = finger_coords_array_np[OCULUS_JOINTS['middle']],
+        #     ring = finger_coords_array_np[OCULUS_JOINTS['ring']],
+        #     little =  finger_coords_array_np[OCULUS_JOINTS['little']],
+        #     metacarpals =  finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
+        #     knuckles =  finger_coords_array_np[OCULUS_JOINTS['knuckles']],
+        # )
+
+        # print(f"self.finger_coords {self.finger_coords}")
+        return
+
+
+    # Function to find hand coordinates with respect to the wrist
+    def _translate_coords(self, coords):
+        return copy(coords) - coords[12]
+
+    # Create a coordinate frame for the hand
+    # Axis meaning: 
+    # Origin is where palm meets middle finger
+    # X is vector from origin outwards (perpendicular to palm)
+    # Y is vector from origin to the thumb (left)
+    # Z is vector from origin to middle finger (up)
+    def _get_coord_frame(self, wrist_coord, index_knuckle_coord, little_knuckle_coord):
+        z_axis = normalize_vector(wrist_coord)
+        x_axis = normalize_vector(index_knuckle_coord - little_knuckle_coord)
+        y_axis = normalize_vector(np.cross(z_axis, x_axis))
+        
+        return [x_axis, y_axis, z_axis]
+
+    def transform_keypoints(self, finger_coords_array_np):
+        finger_coords_array_np = self._translate_coords(finger_coords_array_np)
+        original_coord_frame = self._get_coord_frame(
+            finger_coords_array_np[OCULUS_JOINTS['wrist'][0]],
+            finger_coords_array_np[OCULUS_JOINTS['knuckles'][0]],
+            finger_coords_array_np[OCULUS_JOINTS['knuckles'][3]]
         )
+        if np.linalg.det(original_coord_frame) == 0:
+            rospy.logerr("Original coord frame is singular and cannot be inverted")
+            return
+
+        try:
+            rotation_matrix = np.linalg.solve(original_coord_frame, np.eye(3)).T
+            finger_coords = (rotation_matrix @ finger_coords_array_np.T).T
+        except np.linalg.LinAlgError as e:
+            rospy.logerr(f"Error computing rotation matrix: {e}")
+        self.finger_coords = dict(
+            wrist = finger_coords[OCULUS_JOINTS['wrist']],
+            palm = finger_coords[OCULUS_JOINTS['palm']],
+            thumb = finger_coords[OCULUS_JOINTS['thumb']],
+            index = finger_coords[OCULUS_JOINTS['index']],
+            middle = finger_coords[OCULUS_JOINTS['middle']],
+            ring = finger_coords[OCULUS_JOINTS['ring']],
+            little =  finger_coords[OCULUS_JOINTS['little']],
+            metacarpals =  finger_coords[OCULUS_JOINTS['metacarpals']],
+            knuckles =  finger_coords[OCULUS_JOINTS['knuckles']],
+        )
+
+    # def _get_joints_coords(self, msg):
+    #     for i in OCULUS_JOINTS:
+    #         self.finger_poses.append(msg[i])
+    #     return
 
     # Get robot thumb angles when moving only in 2D motion
     def _get_2d_thumb_angles(self, thumb_keypoints, curr_angles):
@@ -126,27 +206,45 @@ class AllegroHandOperator(Operator):
         return curr_angles
 
     # Get robot thumb angles when moving in 3D motion
-    def _get_3d_thumb_angles(self, thumb_keypoints, curr_angles):
-        # Precompute reused values
-        planar_thumb_bounds_2d = Polygon(self.hand_thumb_bounds[:4])
-        z_hand_bound = self.hand_thumb_bounds[4]
+    # def _get_3d_thumb_angles(self, thumb_keypoints, curr_angles):
+    #     # Precompute reused values
+    #     planar_thumb_bounds_2d = Polygon(self.hand_thumb_bounds[:4])
+    #     z_hand_bound = self.hand_thumb_bounds[4]
 
-        # Using shapely's nearest_points to get the closest point within the bounds
-        planar_point = Point(thumb_keypoints[:2])  # Only use the 2D points for planar calculations
-        closest_point = nearest_points(planar_thumb_bounds_2d, planar_point)[0]
+    #     # Using shapely's nearest_points to get the closest point within the bounds
+    #     planar_point = Point(thumb_keypoints[:2])  # Only use the 2D points for planar calculations
+    #     closest_point = nearest_points(planar_thumb_bounds_2d, planar_point)[0]
 
-        # Form 3D coordinates by reusing z from thumb_keypoints
-        closest_point_coords = [closest_point.x, closest_point.y, thumb_keypoints[2]]
+    #     # Form 3D coordinates by reusing z from thumb_keypoints
+    #     closest_point_coords = [closest_point.x, closest_point.y, thumb_keypoints[2]]
 
-        # Convert polygon to list of points for OpenCV perspective transform
-        thumb_bounds_points = np.array(self.hand_thumb_bounds[:4], dtype=np.float32)
+    #     # Convert polygon to list of points for OpenCV perspective transform
+    #     thumb_bounds_points = np.array(self.hand_thumb_bounds[:4], dtype=np.float32)
 
+    #     return self.fingertip_solver.thumb_motion_3D(
+    #         hand_coordinates=closest_point_coords,
+    #         xy_hand_bounds=thumb_bounds_points,  # Pass as a list of points instead of Polygon
+    #         yz_robot_bounds=self.allegro_bounds['thumb_bounds'][0]['projective_bounds'],
+    #         z_hand_bound=z_hand_bound,
+    #         x_robot_bound=self.allegro_bounds['thumb_bounds'][0]['x_bounds'],
+    #         moving_avg_arr=self.moving_average_queues['thumb'], 
+    #         curr_angles=curr_angles
+    #     )
+    
+
+    # 27 mm is the distance between index and middle knuckle. In the hand tracking it is 1
+    # Axis meaning: 
+    # Origin is where palm meets middle finger
+    # X is vector from origin outwards (perpendicular to palm)
+    # Y is vector from origin to the thumb (left)
+    # Z is vector from origin to middle finger (up)
+    def _get_3d_thumb_angles(self, thumb_joint_coords, curr_angles):
+
+            # 27 mm is the distance between my index and middle knuckle. In the hand tracking coord system it is 1
+        # transformed_thumb_tip_keypoint = thumb_tip_keypoint*0.027 #conversion to m
+        thumb_joint_coords = thumb_joint_coords*0.017 #conversion to m
         return self.fingertip_solver.thumb_motion_3D(
-            hand_coordinates=closest_point_coords,
-            xy_hand_bounds=thumb_bounds_points,  # Pass as a list of points instead of Polygon
-            yz_robot_bounds=self.allegro_bounds['thumb_bounds'][0]['projective_bounds'],
-            z_hand_bound=z_hand_bound,
-            x_robot_bound=self.allegro_bounds['thumb_bounds'][0]['x_bounds'],
+            thumb_joint_coords=thumb_joint_coords,
             moving_avg_arr=self.moving_average_queues['thumb'], 
             curr_angles=curr_angles
         )
@@ -166,135 +264,53 @@ class AllegroHandOperator(Operator):
     def _apply_retargeted_angles(self):
         # while not rospy.is_shutdown():
             hand_keypoints = self.finger_coords
-            desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
-            0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-            # desired_joint_angles = np.array([0.2, 0.28113237, 0.16851817, 0.2, 0.2, 0.17603329, 
-            # 0.21581194, 0.2, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
-            # # desired_joint_angles = copy(self.robot.get_joint_position())
+            desired_joint_angles = self.last_desired_joint_angles
+            
+            # print(f"hand_keypoints['index'] {hand_keypoints['index']}")
+            # print(f"hand_keypoints['index'], {hand_keypoints['index'],}")
 
-            # Movement for the index finger with option to freeze the finger
-            # if not self.finger_configs['freeze_index'] and not self.finger_configs['no_index']:
-            desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-                    finger_type = 'index',
-                    finger_joint_coords = hand_keypoints['index'],
-                    curr_angles = desired_joint_angles,
-                    moving_avg_arr = self.moving_average_queues['index']
-                )
-            # print('index',desired_joint_angles)
-            # desired_joint_angles =  np.array([0.06283185, 
-            #                                  3.35704426, 
-            #                                  0.04035115, 
-            #                                  0.09472102,
-            #                                  0.2,       
-            #                                  0.17603329,
-            #                                  0.21581194, 
-            #                                  0.2,        
-            #                                  0.2928223,  
-            #                                  0.16747166, 
-            #                                  1.45242466, 
-            #                                  1.45812127,
-            #                                  0.69531447, 
-            #                                  1.1,        
-            #                                  1.1,        
-            #                                  1.1])
-            # desired_joint_angles =  np.array([0.06283185, 
-            #                                  3.35704426, # Here i9s the issue, should be 0
-            #                                  0.04035115, 
-            #                                  0.09472102,
-            #                                  0.2,       
-            #                                  0.17603329,
-            #                                  0.21581194, 
-            #                                  0.2,        
-            #                                  0.2928223,  
-            #                                  0.16747166, 
-            #                                  1.45242466, 
-            #                                  1.45812127,
-            #                                  0.69531447, 
-            #                                  1.1,        
-            #                                  1.1,        
-            #                                  1.1])
-            # desired_joint_angles =  np.array([0.0, 0.0, 0.0, 0.0, 0.0,0.0,
-            #         0.0, 0.0,        0.0,  0.0, 0.0, 0.0,
-            #         0.0, 0.0,        0.0,        0.0    ]) 
+            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
+            #         finger_type = 'index',
+            #         finger_joint_coords = hand_keypoints['index'],
+            #         metacarpals_coords = hand_keypoints['metacarpals'],
+            #         curr_angles = desired_joint_angles,
+            #         moving_avg_arr = self.moving_average_queues['index']
+            #     )
+            
+            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
+            #         finger_type = 'middle',
+            #         finger_joint_coords = hand_keypoints['middle'],
+            #         metacarpals_coords = hand_keypoints['metacarpals'],
+            #         curr_angles = desired_joint_angles,
+            #         moving_avg_arr = self.moving_average_queues['middle']
+            #     )
+           
+            
+            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
+            #         finger_type = 'ring',
+            #         finger_joint_coords = hand_keypoints['ring'],
+            #         metacarpals_coords = hand_keypoints['metacarpals'],
+            #         curr_angles = desired_joint_angles,
+            #         moving_avg_arr = self.moving_average_queues['ring']
+            #     )
 
-            # elif self.finger_configs['freeze_index']:
-                # self._generate_frozen_angles(desired_joint_angles, 'index')
-            # else:
-                # print("No index")
-                # pass
-            # Movement for the middle finger option to freeze the finger
-            # if not self.finger_configs['freeze_middle'] and not self.finger_configs['no_middle']:
             
-            
-            # desired_joint_angles =  np.array([0.06283185, 
-            #                      3.35704426, 
-            #                      0.04035115, 
-            #                      0.09472102,
-            #                      0.2,       
-            #                      0.17603329, # Here is issue with middle finger
-            #                      0.21581194, 
-            #                      0.2,        
-            #                      0.2928223,  
-            #                      0.16747166, 
-            #                      1.45242466, 
-            #                      1.45812127,
-            #                      0.69531447, 
-            #                      1.1,        
-            #                      1.1,        
-            #                      1.1])
-            
-            desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-                    finger_type = 'middle',
-                    finger_joint_coords = hand_keypoints['middle'],
+            # desired_joint_angles = self._get_3d_thumb_angles(
+            #         thumb_joint_coords = hand_keypoints['thumb'],
+            #         curr_angles = desired_joint_angles,
+            # )
+            desired_joint_angles = self.finger_joint_solver.calculate_thumb_angles(
+                    index_knuckle = hand_keypoints['knuckles'][1],
+                    thumb_joint_coords = hand_keypoints['thumb'],
                     curr_angles = desired_joint_angles,
-                    moving_avg_arr = self.moving_average_queues['middle']
+                    moving_avg_arr = self.moving_average_queues['thumb']
                 )
-            # print('middle',desired_joint_angles)
-            
-            
-            
-            # elif self.finger_configs['freeze_middle']:
-                # self._generate_frozen_angles(desired_joint_angles, 'middle')
-            # else :
-                # print("No Middle")
-                # pass
-            # Movement for the ring finger option to freeze the finger
-            # if not self.finger_configs['freeze_ring'] and not self.finger_configs['no_ring']:
-            
-            
-            desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-                    finger_type = 'ring',
-                    finger_joint_coords = hand_keypoints['ring'],
-                    curr_angles = desired_joint_angles,
-                    moving_avg_arr = self.moving_average_queues['ring']
-                )
-            # print('ring',desired_joint_angles)
-            
-            
-            # elif self.finger_configs['freeze_ring']:
-                # self._generate_frozen_angles(desired_joint_angles, 'ring')
-            # else: 
-                # print("No ring")
-                # pass
-            # Movement for the thumb finger with option to freeze the finger
-            # if not self.finger_configs['freeze_thumb'] and not self.finger_configs['no_thumb']:
-            
-            
-            # desired_joint_angles = self.thumb_angle_calculator(hand_keypoints['thumb'][-1], desired_joint_angles) # Passing just the tip coordinates
-            # print('thumb',desired_joint_angles)
-            # print("D4")
-            
-            desired_joint_angles = self._get_3d_thumb_angles(
-                    thumb_keypoints = hand_keypoints['thumb'][4],
-                    curr_angles = desired_joint_angles,
-            )
-            # elif self.finger_configs['freeze_thumb']:
-                # self._generate_frozen_angles(desired_joint_angles, 'thumb')
-            # else:
-                # print("No thumb")
-                # pass
-            # Move the robot
-            # self.robot.move(desired_joint_angles)
-            # print("D5")
+
+            # self.last_desired_joint_angles = np.round(desired_joint_angles, 2)
+            self.last_desired_joint_angles = desired_joint_angles
+            # print(f"last_desired_joint_angles{self.last_desired_joint_angles}")
+
             
             return desired_joint_angles
+
+            

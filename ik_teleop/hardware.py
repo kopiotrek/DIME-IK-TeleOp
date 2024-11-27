@@ -1,6 +1,6 @@
 import rospy
 import os
-from std_msgs.msg import Float64MultiArray
+from geometry_msgs.msg import PoseArray
 import numpy as np
 from datetime import datetime
 from ik_teleop.ik_core.allegro_retargeters import AllegroKinematicControl, AllegroJointControl, AllegroKDL
@@ -16,6 +16,7 @@ import time
 MAX_ANGLE = 2.1
 
 # List of all ROS Topics
+JOINT_POSE_TOPIC = '/XR/JointPoseArray' 
 JOINT_STATE_TOPIC = '/allegroHand/joint_states' 
 GRAV_COMP_TOPIC = '/allegroHand/grav_comp_torques' 
 COMM_JOINT_STATE_TOPIC = '/allegroHand/commanded_joint_states' 
@@ -41,14 +42,14 @@ class TeleOp(object):
         self.allegroJC = AllegroJointControl()
         self.allegroKC = AllegroKinematicControl()
         self.allegroDAC = DexArmControl()
-        self.allegro_hand_config = get_yaml_data('/home/piotr/RPL/DIME-IK-TeleOp/ik_teleop/configs/allegro_sim.yaml')
+        self.allegro_hand_config = get_yaml_data('/home/mcw/RPL/DIME-IK-TeleOp/ik_teleop/configs/allegro_sim.yaml')
 
         self.allegro_hand_operator = AllegroHandOperator(self.allegro_hand_config)
         self.grav_comp = DEFAULT_VAL
         self.current_joint_pose = DEFAULT_VAL
         self.cmd_joint_state = DEFAULT_VAL
         rospy.Subscriber(JOINT_STATE_TOPIC, JointState, self._sub_callback_joint_state)
-        rospy.Subscriber('/transformed_hand_coords', Float64MultiArray, self._callback_knuckle_coordinates, queue_size=1)
+        rospy.Subscriber(JOINT_POSE_TOPIC, PoseArray, self._callback_knuckle_coordinates, queue_size=1)
         self.joint_comm_publisher = rospy.Publisher(JOINT_COMM_TOPIC, JointState, queue_size=1)
     
     def _sub_callback_joint_state(self, data):
