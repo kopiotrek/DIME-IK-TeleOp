@@ -153,7 +153,7 @@ class AllegroHandOperator(Operator):
         x_axis = normalize_vector(index_knuckle_coord - little_knuckle_coord)
         y_axis = normalize_vector(np.cross(z_axis, x_axis))
         
-        return [x_axis, y_axis, z_axis]
+        return [y_axis, x_axis, -z_axis] # Change from left-handed unity system to right-handed
 
     def transform_keypoints(self, finger_coords_array_np):
         finger_coords_array_np = self._translate_coords(finger_coords_array_np)
@@ -299,12 +299,18 @@ class AllegroHandOperator(Operator):
             #         thumb_joint_coords = hand_keypoints['thumb'],
             #         curr_angles = desired_joint_angles,
             # )
-            desired_joint_angles = self.finger_joint_solver.calculate_thumb_angles(
-                    index_knuckle = hand_keypoints['knuckles'][1],
+            # desired_joint_angles = self.finger_joint_solver.calculate_thumb_angles(
+            #         index_knuckle = hand_keypoints['knuckles'][1],
+            #         thumb_joint_coords = hand_keypoints['thumb'],
+            #         curr_angles = desired_joint_angles,
+            #         moving_avg_arr = self.moving_average_queues['thumb']
+            #     )
+            desired_joint_angles = self.fingertip_solver.thumb_motion_3D(
                     thumb_joint_coords = hand_keypoints['thumb'],
-                    curr_angles = desired_joint_angles,
-                    moving_avg_arr = self.moving_average_queues['thumb']
+                    moving_avg_arr = self.moving_average_queues['thumb'],
+                    curr_angles = desired_joint_angles
                 )
+            
 
             # self.last_desired_joint_angles = np.round(desired_joint_angles, 2)
             self.last_desired_joint_angles = desired_joint_angles

@@ -3,7 +3,8 @@ import numpy as np
 from copy import deepcopy as copy
 from ik_teleop.teleop_utils.files import *
 from ik_teleop.teleop_utils.constants import *
-from ik_teleop.ik_core.allegro_ik import IKControl 
+from ik_teleop.teleop_utils.vectorops import *
+from ik_teleop.ik_core.allegro_thumb_ik import ThumbIK 
 
 class AllegroKDL(object):
     def __init__(self):
@@ -28,7 +29,7 @@ class AllegroKDL(object):
                 ], 
                 name = finger
             )
-        self.ik = IKControl()
+        self.ik = ThumbIK()
     
     def finger_forward_kinematics(self, finger_type, input_angles):
         # Checking if the number of angles is equal to 4
@@ -63,7 +64,21 @@ class AllegroKDL(object):
         if finger_type not in self.hand_configs['fingers'].keys():
             print('Finger type does not exist')
             return
-        
+
+        print(f"input_position {input_position}")
+        rotation_angles = (np.pi + np.deg2rad(5), 0, 0)
+        input_position += [0.0182, -0.016958, 0.073288]
+        input_position += [-0.02, 0, 0]
+        input_position[0] *= 1.4
+        input_position[1] *= 1.0
+        input_position[2] *= 1.0
+        # rotation_angles = (-np.pi, -np.pi/2, np.deg2rad(5)+np.pi)
+        input_position = rotate_point(input_position, rotation_angles)
+        # input_position = [-0.01344712, -0.00566355, -0.03781227]
+
+        print(f"input_position trans{input_position}")
+        # TEE for fully extended thumb to the side    
+        # [0.0431817626,−0.160388732,0.0000003505]
         if seed is not None:
             # Checking if the number of angles is equal to 4
             if len(seed) != self.hand_configs['joints_per_finger']:
@@ -82,11 +97,9 @@ class AllegroKDL(object):
             seed = list(seed)
             seed.insert(0, 0)
             seed.append(0)
-
         # output_angles = self.chains[finger_type].inverse_kinematics(input_position, initial_position = seed)
-        self.ik.SetPosition(input_position)
-        self.ik.Update()
-        output_angles = self.ik.GetCurrentState()
+        output_angles = self.ik.compute_ik(input_position)
+        print("Computed Joint Angles (IK):", output_angles)
         return output_angles[0:4]
 
         
@@ -101,6 +114,7 @@ class AllegroKDL(object):
         middle_coords = self.finger_forward_kinematics('middle', joint_positions[OCULUS_JOINTS['middle']])[0]
         ring_coords = self.finger_forward_kinematics('ring', joint_positions[OCULUS_JOINTS['ring']])[0]
         thumb_coords = self.finger_forward_kinematics('thumb', joint_positions[OCULUS_JOINTS['thumb']])[0]
+        # thumb_coords = self.finger_inverse_kinematics('thumb', joint_positions[OCULUS_JOINTS['thumb']])[0]
 
 
         finger_tip_coords = np.hstack([index_coords, middle_coords, ring_coords, thumb_coords])
@@ -127,14 +141,14 @@ class AllegroKDL(object):
         return desired_joint_angles
     
 
-if __name__ == '__main__':
-    ik_control = AllegroKDL()
+# if __name__ == '__main__':
+#     ik_control = AllegroKDL()
 
-    # Set desired position and orientation
-    # output_frame = ik_control.finger_forward_kinematics('thumb',[ 0.49158065,  0.62981548, -2.99420419,  3.29378238])  # Example position
-    thumb_joint_angles = ik_control.finger_inverse_kinematics('thumb', [ 0.02698166,  0.16099207, -0.07196472])
-    print(f"thumb_joint_angles {thumb_joint_angles}")
-    # ik_control.rotation = np.array([1, 0, 0, 0])     # Identity quaternion
+#     # Set desired position and orientation
+#     # output_frame = ik_control.finger_forward_kinematics('thumb',[ 0.49158065,  0.62981548, -2.99420419,  3.29378238])  # Example position
+#     thumb_joint_angles = ik_control.finger_inverse_kinematics('thumb', [ 0.02698166,  0.16099207, -0.07196472])
+#     print(f"thumb_joint_angles {thumb_joint_angles}")
+#     # ik_control.rotation = np.array([1, 0, 0, 0])     # Identity quaternion
 
-    # Perform the IK update
-    # ik_control.Update()
+#     # Perform the IK update
+#     # ik_control.Update()
