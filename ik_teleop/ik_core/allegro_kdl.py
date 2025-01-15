@@ -1,10 +1,20 @@
 from ikpy import chain
+import rospy
 import numpy as np
 from copy import deepcopy as copy
 from ik_teleop.teleop_utils.files import *
 from ik_teleop.teleop_utils.constants import *
 from ik_teleop.teleop_utils.vectorops import *
-from ik_teleop.ik_core.allegro_thumb_ik import ThumbIK 
+from ik_teleop.ik_core.allegro_ik import ThumbIK, FingerIK 
+import time
+
+from geometry_msgs.msg import Point
+from visualization_msgs.msg import Marker
+
+THUMB_IK_MARKER_TOPIC = '/ik_marker/thumb'
+INDEX_IK_MARKER_TOPIC = '/ik_marker/index'
+MIDDLE_IK_MARKER_TOPIC = '/ik_marker/middle'
+RING_IK_MARKER_TOPIC = '/ik_marker/ring'
 
 class AllegroKDL(object):
     def __init__(self):
@@ -29,7 +39,11 @@ class AllegroKDL(object):
                 ], 
                 name = finger
             )
-        self.ik = ThumbIK()
+        self.thumb_ik = ThumbIK()
+        self.finger_ik = FingerIK()
+        self.thumb_ik_marker_publisher = rospy.Publisher(THUMB_IK_MARKER_TOPIC, Marker, queue_size=1)
+        self.index_ik_marker_publisher = rospy.Publisher(INDEX_IK_MARKER_TOPIC, Marker, queue_size=1)
+
     
     def finger_forward_kinematics(self, finger_type, input_angles):
         # Checking if the number of angles is equal to 4
@@ -59,48 +73,148 @@ class AllegroKDL(object):
         output_frame = self.chains[finger_type].forward_kinematics(input_angles)
         return output_frame[:3, 3], output_frame[:3, :3]
 
-    def finger_inverse_kinematics(self, finger_type, input_position, seed = None):
+    
+
+    def finger_inverse_kinematics(self, finger_type, input_position, curr_finger_angles):
         # Checking if the input figner type is a valid one
         if finger_type not in self.hand_configs['fingers'].keys():
             print('Finger type does not exist')
             return
 
-        print(f"input_position {input_position}")
-        rotation_angles = (np.pi + np.deg2rad(5), 0, 0)
-        input_position += [0.0182, -0.016958, 0.073288]
-        input_position += [-0.02, 0, 0]
-        input_position[0] *= 1.4
-        input_position[1] *= 1.0
-        input_position[2] *= 1.0
-        # rotation_angles = (-np.pi, -np.pi/2, np.deg2rad(5)+np.pi)
-        input_position = rotate_point(input_position, rotation_angles)
-        # input_position = [-0.01344712, -0.00566355, -0.03781227]
+        if finger_type == 'thumb':
+            # print(f"input_position {input_position}")
+            # time.sleep(.3)
 
-        print(f"input_position trans{input_position}")
-        # TEE for fully extended thumb to the side    
-        # [0.0431817626,−0.160388732,0.0000003505]
-        if seed is not None:
-            # Checking if the number of angles is equal to 4
-            if len(seed) != self.hand_configs['joints_per_finger']:
-                print('Incorrect seed array length')
-                return 
+            marker = Marker()
+            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
+            marker.header.stamp = rospy.Time.now()
+            marker.ns = "basic_shapes"
+            marker.id = 0
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
 
-            # Clipping the input angles based on the finger type
-            finger_info = self.finger_configs['links_info'][finger_type]
-            for iterator in range(len(seed)):
-                if seed[iterator] > finger_info['joint_max'][iterator]:
-                    seed[iterator] = finger_info['joint_max'][iterator]
-                elif seed[iterator] < finger_info['joint_min'][iterator]:
-                    seed[iterator] = finger_info['joint_min'][iterator]
+            marker.scale.x = 0.05
+            marker.scale.y = 0.05
+            marker.scale.z = 0.05
+            marker.color.r = 1.0
+            marker.color.g = 0.0
+            marker.color.b = 0.0
+            marker.color.a = 0.5  # Alpha (transparency)
 
-            # Padding values at the beginning and the end to get for a (1x6) array
-            seed = list(seed)
-            seed.insert(0, 0)
-            seed.append(0)
-        # output_angles = self.chains[finger_type].inverse_kinematics(input_position, initial_position = seed)
-        output_angles = self.ik.compute_ik(input_position)
-        print("Computed Joint Angles (IK):", output_angles)
-        return output_angles[0:4]
+            input_position[0] -= 0.03
+            input_position[0] *= 1.5
+            # input_position[1] -= 0.0
+            input_position[1] *= 1.2
+            # input_position[2] -= 0.017
+            input_position[2] *= 1.2  
+            # print(f"input_position trans{input_position}")
+            # time.sleep(.3)
+
+            marker.pose.position.x = input_position[0]
+            marker.pose.position.y = input_position[1]
+            marker.pose.position.z = input_position[2]
+
+            rotation_angles = (np.pi + np.deg2rad(5), 0, 0)
+            input_position += [0.0182, -0.016958, 0.073288]
+            input_position = rotate_point(input_position, rotation_angles)
+
+            self.thumb_ik_marker_publisher.publish(marker)
+
+            output_angles = self.thumb_ik.compute_ik(input_position)
+            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
+            output_angles = np.append(output_angles, 0)
+            return output_angles[0:4]
+
+        elif finger_type == 'index':
+            # wyprostowany
+            # ip_x = [-0.1415960225855222, 0.006090478759842102, 0.009434112446888552]
+            # scisniety
+            # ip_x = [0.06613992374305373, 0.0017504104318999403, 0.04478159966084637]
+            # przeskakuje
+            # ip_x = [0.032225730640252054, 0.02968919827946307, 0.14660298104548292]
+            # ip_x = [-0.014293, -0.045098, 0.08]
+            # pos_error: [-0.00085594  0.00848489  0.00083459]
+            # q: [0.57       1.71       0.29181021 0.00000033]
+            
+
+            # input_position = [ip_x[2],-ip_x[1],-ip_x[0]]
+            
+            # input_position = [0.0, 0.0, 0.1527]
+
+            marker = Marker()
+            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
+            marker.header.stamp = rospy.Time.now()
+            marker.ns = "basic_shapes"
+            marker.id = 0
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+
+            marker.scale.x = 0.02
+            marker.scale.y = 0.02
+            marker.scale.z = 0.02
+            marker.color.r = 0.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0
+            marker.color.a = 0.5  # Alpha (transparency)
+
+
+
+            # print(f"input_position {input_position}")
+            # input_position[0] -= 0.03
+            # input_position[0] *= 2.9
+            # input_position[1] *= 2.9
+            # input_position[2] *= 2.9
+        
+            marker.pose.position.x = input_position[0]
+            marker.pose.position.y = input_position[1]
+            marker.pose.position.z = input_position[2]
+
+            self.index_ik_marker_publisher.publish(marker)
+            rotation_angles = (-np.deg2rad(5), 0, 0)
+            input_position = rotate_point(input_position, rotation_angles)
+            # print(f"input_position trans{input_position}")
+            # time.sleep(.3)
+            input_position += [0, -0.045098, -0.014293]
+
+            # ik_position = [-input_position[2],-input_position[1],input_position[0]]
+            # ik_position = [input_position[0],input_position[1],input_position[2]]
+            output_angles = self.finger_ik.compute_ik(finger_type, input_position, curr_finger_angles)
+            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
+            return output_angles[0:4]
+
+        elif finger_type == 'middle':
+            # print(f"input_position {input_position}")
+            # input_position[2] -= 0.005
+            # input_position[2] *= 3
+            # input_position[0] -= 0.03
+            # input_position[0] *= 1.5
+            # input_position[1] *= 1.8
+            # print(f"input_position trans{input_position}")
+            # time.sleep(.3)
+            input_position += [0, 0, -0.0166]
+            rotation_angles = (0, 0, 0)
+            input_position = rotate_point(input_position, rotation_angles)
+
+            output_angles = self.finger_ik.compute_ik(finger_type, input_position, curr_finger_angles)
+            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
+            return output_angles[0:4]
+
+        elif finger_type == 'ring':
+            # print(f"input_position {input_position}")
+            # input_position[2] -= 0.005
+            # input_position[2] *= 3
+            # input_position[0] -= 0.03
+            # input_position[0] *= 1.5
+            # input_position[1] *= 1.8
+            # print(f"input_position trans{input_position}")
+            # time.sleep(.3)
+            input_position += [0, 0.045098, -0.014293]
+            rotation_angles = (-np.deg2rad(5), 0, 0)
+            input_position = rotate_point(input_position, rotation_angles)
+
+            output_angles = self.finger_ik.compute_ik(finger_type, input_position, curr_finger_angles)
+            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
+            return output_angles[0:4]
 
         
 
@@ -120,26 +234,7 @@ class AllegroKDL(object):
         finger_tip_coords = np.hstack([index_coords, middle_coords, ring_coords, thumb_coords])
         return np.array(finger_tip_coords)
 
-    def get_joint_state_from_coord(self, index_tip_coord, middle_tip_coord, ring_tip_coord, thumb_tip_coord, seed):
-        # print(seed)
-        # index_joint_angles = self.finger_inverse_kinematics('index', index_tip_coord, seed[0:4])
-        # middle_joint_angles = self.finger_inverse_kinematics('middle', middle_tip_coord, seed[4:8])
-        # ring_joint_angles = self.finger_inverse_kinematics('ring', ring_tip_coord, seed[8:12])
-        index_joint_angles = [0,0,0,0]
-        middle_joint_angles = [0,0,0,0]
-        ring_joint_angles = [0,0,0,0]
-        thumb_joint_angles = self.finger_inverse_kinematics('thumb', thumb_tip_coord, seed[12:16])
-
-        desired_joint_angles = copy(seed)
-        
-        for idx in range(4):
-            desired_joint_angles[idx] = index_joint_angles[idx]
-            desired_joint_angles[4 + idx] = middle_joint_angles[idx]
-            desired_joint_angles[8 + idx] = ring_joint_angles[idx]
-            desired_joint_angles[12 + idx] = thumb_joint_angles[idx]
-
-        return desired_joint_angles
-    
+   
 
 # if __name__ == '__main__':
 #     ik_control = AllegroKDL()

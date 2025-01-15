@@ -34,8 +34,7 @@ class AllegroHandOperator(Operator):
                 rospy.init_node('allegro_hand_operator')
             except rospy.ROSInterruptException:
                 pass
-        # self._transformed_hand_keypoint_subscriber = rospy.Subscriber('XR/JointPoseArray', PoseArray, callback=self._get_joints_poses, queue_size=1)
-        self._transformed_hand_keypoint_subscriber = rospy.Subscriber('XR/keypoints_transformed', PoseArray, callback=self._get_joints_poses, queue_size=1)
+        self._transformed_hand_keypoint_subscriber = rospy.Subscriber('XR/JointPoseArray', PoseArray, callback=self._get_joints_poses, queue_size=1)
         JOINT_COUNT = 26
         # Initializing the  finger configs
         self.finger_configs = finger_configs
@@ -60,7 +59,7 @@ class AllegroHandOperator(Operator):
             'middle': [],
             'ring': []
         }
-        # self.knuckle_points = (OCULUS_JOINTS['knuckles'][3], OCULUS_JOINTS['knuckles'][0])
+        self.knuckle_points = (OCULUS_JOINTS['knuckles'][3], OCULUS_JOINTS['knuckles'][0])
 
         self.last_desired_joint_angles = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.263, 0.0, 0.0, 0.0])
@@ -117,28 +116,19 @@ class AllegroHandOperator(Operator):
     def _get_joints_poses(self, msg):
         finger_coords_array = []
         finger_orientation_array = []
-        if len(msg.poses) < OCULUS_NUM_KEYPOINTS - len(OCULUS_JOINTS['little']):
+        if len(msg.poses) < OCULUS_NUM_KEYPOINTS:
             print("ERROR: not enough joints received")
             return
-        for i in range(OCULUS_NUM_KEYPOINTS - len(OCULUS_JOINTS['little'])):
+        for i in range(OCULUS_NUM_KEYPOINTS):
             # finger_poses_array.append(msg.poses[i])
             finger_coords_array.append(self.position_to_array(msg.poses[i].position))     
         finger_coords_array_np = np.array(finger_coords_array)
-        for i in range(OCULUS_NUM_KEYPOINTS - len(OCULUS_JOINTS['little'])):
+        for i in range(OCULUS_NUM_KEYPOINTS):
             # finger_poses_array.append(msg.poses[i])
             finger_orientation_array.append(self.orientation_to_array(msg.poses[i].orientation)) 
         finger_orientation_array_np = np.array(finger_orientation_array)
-        self.finger_coords = dict(
-            wrist = finger_coords_array_np[OCULUS_JOINTS['wrist']],
-            palm = finger_coords_array_np[OCULUS_JOINTS['palm']],
-            thumb = finger_coords_array_np[OCULUS_JOINTS['thumb']],
-            index = finger_coords_array_np[OCULUS_JOINTS['index']],
-            middle = finger_coords_array_np[OCULUS_JOINTS['middle']],
-            ring = finger_coords_array_np[OCULUS_JOINTS['ring']],
-            # little =  finger_coords_array_np[OCULUS_JOINTS['little']],
-            metacarpals =  finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
-            # knuckles =  finger_coords_array_np[OCULUS_JOINTS['knuckles']],
-        )
+
+        self.transform_keypoints(finger_coords_array_np)
 
         self.finger_orientations = dict(
             wrist = finger_orientation_array_np[OCULUS_JOINTS['wrist']],
@@ -147,10 +137,25 @@ class AllegroHandOperator(Operator):
             index = finger_orientation_array_np[OCULUS_JOINTS['index']],
             middle = finger_orientation_array_np[OCULUS_JOINTS['middle']],
             ring = finger_orientation_array_np[OCULUS_JOINTS['ring']],
-            # little =  finger_orientation_array_np[OCULUS_JOINTS['little']],
+            little =  finger_orientation_array_np[OCULUS_JOINTS['little']],
             metacarpals =  finger_orientation_array_np[OCULUS_JOINTS['metacarpals']],
-            # knuckles =  finger_orientation_array_np[OCULUS_JOINTS['knuckles']],
+            knuckles =  finger_orientation_array_np[OCULUS_JOINTS['knuckles']],
         )
+
+
+        # self.finger_coords = dict(
+        #     wrist = finger_coords_array_np[OCULUS_JOINTS['wrist']],
+        #     palm = finger_coords_array_np[OCULUS_JOINTS['palm']],
+        #     thumb = finger_coords_array_np[OCULUS_JOINTS['thumb']],
+        #     index = finger_coords_array_np[OCULUS_JOINTS['index']],
+        #     middle = finger_coords_array_np[OCULUS_JOINTS['middle']],
+        #     ring = finger_coords_array_np[OCULUS_JOINTS['ring']],
+        #     little =  finger_coords_array_np[OCULUS_JOINTS['little']],
+        #     metacarpals =  finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
+        #     knuckles =  finger_coords_array_np[OCULUS_JOINTS['knuckles']],
+        # )
+
+        # print(f"self.finger_coords {self.finger_coords}")
         return
 
 
@@ -172,31 +177,31 @@ class AllegroHandOperator(Operator):
         return [y_axis, x_axis, -z_axis] # Change from left-handed unity system to right-handed
 
     def transform_keypoints(self, finger_coords_array_np):
-        # finger_coords_array_np = self._translate_coords(finger_coords_array_np)
-        # original_coord_frame = self._get_coord_frame(
-        #     finger_coords_array_np[OCULUS_JOINTS['wrist'][0]],
-        #     finger_coords_array_np[OCULUS_JOINTS['knuckles'][0]],
-        #     finger_coords_array_np[OCULUS_JOINTS['knuckles'][3]]
-        # )
-        # if np.linalg.det(original_coord_frame) == 0:
-        #     rospy.logerr("Original coord frame is singular and cannot be inverted")
-        #     return
+        finger_coords_array_np = self._translate_coords(finger_coords_array_np)
+        original_coord_frame = self._get_coord_frame(
+            finger_coords_array_np[OCULUS_JOINTS['wrist'][0]],
+            finger_coords_array_np[OCULUS_JOINTS['knuckles'][0]],
+            finger_coords_array_np[OCULUS_JOINTS['knuckles'][3]]
+        )
+        if np.linalg.det(original_coord_frame) == 0:
+            rospy.logerr("Original coord frame is singular and cannot be inverted")
+            return
 
-        # try:
-        #     rotation_matrix = np.linalg.solve(original_coord_frame, np.eye(3)).T
-        #     finger_coords = (rotation_matrix @ finger_coords_array_np.T).T
-        # except np.linalg.LinAlgError as e:
-        #     rospy.logerr(f"Error computing rotation matrix: {e}")
+        try:
+            rotation_matrix = np.linalg.solve(original_coord_frame, np.eye(3)).T
+            finger_coords = (rotation_matrix @ finger_coords_array_np.T).T
+        except np.linalg.LinAlgError as e:
+            rospy.logerr(f"Error computing rotation matrix: {e}")
         self.finger_coords = dict(
-            wrist = finger_coords_array_np[OCULUS_JOINTS['wrist']],
-            palm = finger_coords_array_np[OCULUS_JOINTS['palm']],
-            thumb = finger_coords_array_np[OCULUS_JOINTS['thumb']],
-            index = finger_coords_array_np[OCULUS_JOINTS['index']],
-            middle = finger_coords_array_np[OCULUS_JOINTS['middle']],
-            ring = finger_coords_array_np[OCULUS_JOINTS['ring']],
-            # little =  finger_coords_array_np[OCULUS_JOINTS['little']],
-            metacarpals =  finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
-            # knuckles =  finger_coords_array_np[OCULUS_JOINTS['knuckles']],
+            wrist = finger_coords[OCULUS_JOINTS['wrist']],
+            palm = finger_coords[OCULUS_JOINTS['palm']],
+            thumb = finger_coords[OCULUS_JOINTS['thumb']],
+            index = finger_coords[OCULUS_JOINTS['index']],
+            middle = finger_coords[OCULUS_JOINTS['middle']],
+            ring = finger_coords[OCULUS_JOINTS['ring']],
+            little =  finger_coords[OCULUS_JOINTS['little']],
+            metacarpals =  finger_coords[OCULUS_JOINTS['metacarpals']],
+            knuckles =  finger_coords[OCULUS_JOINTS['knuckles']],
         )
 
     # def _get_joints_coords(self, msg):
@@ -221,7 +226,32 @@ class AllegroHandOperator(Operator):
         
         return curr_angles
 
+    # Get robot thumb angles when moving in 3D motion
+    # def _get_3d_thumb_angles(self, thumb_keypoints, curr_angles):
+    #     # Precompute reused values
+    #     planar_thumb_bounds_2d = Polygon(self.hand_thumb_bounds[:4])
+    #     z_hand_bound = self.hand_thumb_bounds[4]
 
+    #     # Using shapely's nearest_points to get the closest point within the bounds
+    #     planar_point = Point(thumb_keypoints[:2])  # Only use the 2D points for planar calculations
+    #     closest_point = nearest_points(planar_thumb_bounds_2d, planar_point)[0]
+
+    #     # Form 3D coordinates by reusing z from thumb_keypoints
+    #     closest_point_coords = [closest_point.x, closest_point.y, thumb_keypoints[2]]
+
+    #     # Convert polygon to list of points for OpenCV perspective transform
+    #     thumb_bounds_points = np.array(self.hand_thumb_bounds[:4], dtype=np.float32)
+
+    #     return self.fingertip_solver.thumb_motion_3D(
+    #         hand_coordinates=closest_point_coords,
+    #         xy_hand_bounds=thumb_bounds_points,  # Pass as a list of points instead of Polygon
+    #         yz_robot_bounds=self.allegro_bounds['thumb_bounds'][0]['projective_bounds'],
+    #         z_hand_bound=z_hand_bound,
+    #         x_robot_bound=self.allegro_bounds['thumb_bounds'][0]['x_bounds'],
+    #         moving_avg_arr=self.moving_average_queues['thumb'], 
+    #         curr_angles=curr_angles
+    #     )
+    
 
     # 27 mm is the distance between index and middle knuckle. In the hand tracking it is 1
     # Axis meaning: 
@@ -249,16 +279,7 @@ class AllegroHandOperator(Operator):
             else:
                 joint_angles[idx + ALLEGRO_JOINT_OFFSETS[finger_type]] = 0
 
-
-        # print(f"self.finger_coords {self.finger_coords}")
         return joint_angles
-
-
-
-
-    # def retargetting_difference(self, hand_keypoints, robot_)
-
-    # def optimize_retargetting(self, finger_type, avg_finger_coords, curr_finger_angles):
     
     # Apply the retargeted angles to the robot
     def _apply_retargeted_angles(self):
@@ -269,37 +290,21 @@ class AllegroHandOperator(Operator):
             # print(f"hand_keypoints['index'] {hand_keypoints['index']}")
             # print(f"hand_keypoints['index'], {hand_keypoints['index'],}")
 
-            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-            #         finger_type = 'index',
-            #         finger_joint_coords = hand_keypoints['index'],
-            #         metacarpals_coords = hand_keypoints['metacarpals'],
-            #         curr_angles = desired_joint_angles,
-            #         moving_avg_arr = self.moving_average_queues['index']
-            #     )
-
-
-            # IK
-            desired_joint_angles = self.fingertip_solver.finger_3D_motion(
+            desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'index',
                     finger_joint_coords = hand_keypoints['index'],
-                    moving_avg_arr = self.moving_average_queues['index'],
-                    curr_angles = desired_joint_angles
+                    metacarpals_coords = hand_keypoints['metacarpals'],
+                    curr_angles = desired_joint_angles,
+                    moving_avg_arr = self.moving_average_queues['index']
                 )
-            
+
             # desired_joint_angles = self.fingertip_solver.finger_3D_motion(
-            #         finger_type = 'middle',
-            #         finger_joint_coords = hand_keypoints['middle'],
-            #         moving_avg_arr = self.moving_average_queues['middle'],
+            #         finger_type = 'index',
+            #         finger_joint_coords = hand_keypoints['index'],
+            #         moving_avg_arr = self.moving_average_queues['index'],
             #         curr_angles = desired_joint_angles
             #     )
-
-            desired_joint_angles = self.fingertip_solver.finger_3D_motion(
-                    finger_type = 'ring',
-                    finger_joint_coords = hand_keypoints['ring'],
-                    moving_avg_arr = self.moving_average_queues['ring'],
-                    curr_angles = desired_joint_angles
-                )
-
+            
             desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
                     finger_type = 'middle',
                     finger_joint_coords = hand_keypoints['middle'],
@@ -323,12 +328,12 @@ class AllegroHandOperator(Operator):
                     moving_avg_arr = self.moving_average_queues['thumb'],
                     curr_angles = desired_joint_angles
                 )
-            # desired_joint_angles = self.finger_joint_solver.calculate_thumb_tip_angle(
-            #         thumb_joint_coords = hand_keypoints['thumb'],
-            #         thumb_joint_orientations = self.finger_orientations['thumb'],
-            #         curr_angles = desired_joint_angles,
-            #         moving_avg_arr = self.moving_average_queues['thumb']
-            #     )
+            desired_joint_angles = self.finger_joint_solver.calculate_thumb_tip_angle(
+                    thumb_joint_coords = hand_keypoints['thumb'],
+                    thumb_joint_orientations = self.finger_orientations['thumb'],
+                    curr_angles = desired_joint_angles,
+                    moving_avg_arr = self.moving_average_queues['thumb']
+                )
 
             self.last_desired_joint_angles = desired_joint_angles
 

@@ -23,8 +23,8 @@ JOINT_STATE_TOPIC = '/allegroHand/joint_states'
 GRAV_COMP_TOPIC = '/allegroHand/grav_comp_torques' 
 COMM_JOINT_STATE_TOPIC = '/allegroHand/commanded_joint_states' 
 JOINT_COMM_TOPIC = '/allegroHand/joint_cmd'
-JOINT_COMM_DELTA_TOPIC = '/allegroHand/joint_cmd_delta'
-# JOINT_COMM_TOPIC = '/kth_franka_plant/in/allegro_cmd'
+# JOINT_COMM_DELTA_TOPIC = '/allegroHand/joint_cmd_delta'
+JOINT_COMM_DELTA_TOPIC = '/kth_franka_plant/in/allegro_cmd'
 DEFAULT_VAL = None
 
 class TeleOp(object):
@@ -54,7 +54,7 @@ class TeleOp(object):
         self.grav_comp = DEFAULT_VAL
         self.current_joint_pose = DEFAULT_VAL
         self.cmd_joint_state = DEFAULT_VAL
-        self.pause = True
+        self.pause = False
         rospy.Subscriber(JOINT_STATE_TOPIC, JointState, self._sub_callback_joint_state)
         rospy.Subscriber(JOINT_POSE_TOPIC, PoseArray, self._callback_knuckle_coordinates, queue_size=1)
         rospy.Subscriber(PAUSE_TELEOP_TOPIC, Bool, self._sub_pause_teleop, queue_size=1)

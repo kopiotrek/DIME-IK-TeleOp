@@ -3,6 +3,7 @@ from scipy.spatial.transform import Rotation as R
 import matplotlib.pyplot as plt
 import rospy
 from sensor_msgs.msg import JointState
+from ik_teleop.teleop_utils.vectorops import *
 
 class DevThumbIK:
     def __init__(self):
@@ -18,8 +19,9 @@ class DevThumbIK:
         self.ee_vel_rotation = np.zeros(3)
         self.joint_positions = [np.zeros(3)]  # Start with the base position
         # Add joint limits
-        self.q_min = np.array([0.225, -0.368, -0.281, -0.262])  # Minimum joint angles
-        self.q_max = np.array([1.555, 1.152, 1.719, 1.799])    # Maximum joint angles
+        self.q_min = np.array([-0.57, -0.296, -0.274, -0.327])  # Minimum joint angles
+        self.q_max = np.array([0.57, 1.71, 1.809, 1.718])    # Maximum joint angles
+
         # Visualization attributes
         self.fig = None
         self.ax = None
@@ -38,12 +40,20 @@ class DevThumbIK:
         self.set_dh_params(joint_angles)
         self.compute_TEE()
 
+    # def set_dh_params(self, joint_angles):
+    #     self.dh_params = [
+    #         [0.0, 0.0,  1.57079,           joint_angles[0]],          # Joint 1
+    #         [0.0, 0.0554,  -1.57079,       joint_angles[1]-np.pi/2], # Joint 2
+    #         [0.0514, 0.0,  0.0,            joint_angles[2]-np.pi/2],          # Joint 3
+    #         [0.0593, 0.0,  0.0,            joint_angles[3]]           # Joint 4 (End-Effector)
+    #     ]
     def set_dh_params(self, joint_angles):
         self.dh_params = [
-            [0.0, 0.0,  1.57079,           joint_angles[0]],          # Joint 1
-            [0.0, 0.0554,  -1.57079,       joint_angles[1]-np.pi/2], # Joint 2
-            [0.0514, 0.0,  0.0,            joint_angles[2]-np.pi/2],          # Joint 3
-            [0.0593, 0.0,  0.0,            joint_angles[3]]           # Joint 4 (End-Effector)
+            # Trans X, Trans Z, Rot X, Rot Z
+            [0.0,       0.0166,  -np.pi/2,          joint_angles[0]],          # Joint 1
+            [0.054,     0.0,     0.0,               joint_angles[1]-np.pi/2],         # Joint 2
+            [0.0384,    0.0,     0.0,               joint_angles[2]],          # Joint 3
+            [0.0437,    0.0,     0.0,               joint_angles[3]]           # Joint 4
         ]
 
     def get_transformation_matrix(self, i, dh):
@@ -176,15 +186,22 @@ def main():
         # Map joint names to positions
         joint_positions = dict(zip(msg.name, msg.position))
         # Extract thumb joints
-        thumb_joint_names = ["joint_12.0", "joint_13.0", "joint_14.0", "joint_15.0"]
+        thumb_joint_names = ["joint_0.0", "joint_1.0", "joint_2.0", "joint_3.0"]
         ik_control.latest_joint_angles = [joint_positions[name] for name in thumb_joint_names]
+        # print(f"ik_control.latest_joint_angles {ik_control.latest_joint_angles}")
     rospy.Subscriber('allegroHand/joint_states', JointState, joint_state_callback)
     rate = rospy.Rate(10)  # 10 Hz
     while not rospy.is_shutdown():
         if ik_control.latest_joint_angles is not None:
             ik_control.reset_to_joints(ik_control.latest_joint_angles)
             ik_control.compute_TEE()
-            print("End-Effector Position (FK):", ik_control.TEE[:3, 3])
+            ee = ik_control.TEE[:3, 3]
+            print("End-Effector Position (FK):", ee)
+            rotation_angles = (np.deg2rad(5), 0, 0)
+            ee = rotate_point(ee, rotation_angles)
+            ee += [0, -0.045098, -0.014293]
+
+            print("Transformed End-Effector Position (FK):", ee)
             ik_control.update_visualization()
         rate.sleep()
 

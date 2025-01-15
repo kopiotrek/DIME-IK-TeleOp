@@ -70,3 +70,39 @@ def calculate_angle_z(coord_1, coord_2, coord_3):
 def coord_in_bound(bound, coord):
     bound_points = np.array(bound, dtype=np.float32).reshape(-1, 2)
     return cv2.pointPolygonTest(bound_points, tuple(coord), False)    
+
+def rotate_point(point, angles):
+    """
+    Rotates a 3D point by given Euler angles (in radians).
+    :param point: List or array of [x, y, z].
+    :param angles: Tuple of angles (rx, ry, rz) in radians.
+    :return: Rotated point as a numpy array.
+    """
+    rx, ry, rz = angles
+    
+    # Rotation matrix for X-axis
+    Rx = np.array([
+        [1, 0, 0],
+        [0, np.cos(rx), -np.sin(rx)],
+        [0, np.sin(rx), np.cos(rx)]
+    ])
+    
+    # Rotation matrix for Y-axis
+    Ry = np.array([
+        [np.cos(ry), 0, np.sin(ry)],
+        [0, 1, 0],
+        [-np.sin(ry), 0, np.cos(ry)]
+    ])
+    
+    # Rotation matrix for Z-axis
+    Rz = np.array([
+        [np.cos(rz), -np.sin(rz), 0],
+        [np.sin(rz), np.cos(rz), 0],
+        [0, 0, 1]
+    ])
+    
+    # Combined rotation matrix
+    R = Rz @ Ry @ Rx
+    
+    # Apply rotation
+    return R @ point

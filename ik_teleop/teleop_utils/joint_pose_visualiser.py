@@ -113,7 +113,7 @@ class TransformHandPositionCoords():
         
         y_axis = normalize_vector(np.cross(z_axis, x_axis))
         
-        return [x_axis, y_axis, z_axis]
+        return [y_axis, x_axis, -z_axis]
 
     # Create a coordinate frame for the arm 
     def _get_hand_dir_frame(self, origin_coord, index_knuckle_coord, pinky_knuckle_coord):
@@ -141,6 +141,8 @@ class TransformHandPositionCoords():
             self.transformed_hand_coords = (rotation_matrix @ translated_coords.T).T
         except np.linalg.LinAlgError as e:
             rospy.logerr(f"Error computing rotation matrix: {e}")
+
+        print(f"thumb tip {self.transformed_hand_coords[OCULUS_JOINTS['thumb'][3]]}")
         self.visualize_3d(self.transformed_hand_coords)
     
     def angle_between_vectors(self, v1, v2):
@@ -155,11 +157,19 @@ class TransformHandPositionCoords():
     def visualize_3d(self, kpts3d):
         """Visualize the keypoints for a single frame."""
         kpts3d_rotated = np.array([self.Rz @ self.Rx @ kpt for kpt in kpts3d])
-
+        kpts3d_rotated[:, 2] *= -1  # Invert Z-axis
         # Clear plot axes for each frame and replot
         self.ax.cla()
         self.setup_plot()
-        
+        # Add axis arrows
+        axis_length = 0.2  # Length of the arrows
+        self.ax.quiver(0, 0, 0, axis_length, 0, 0, color='r', linewidth=2, arrow_length_ratio=0.1, label='X (positive)')
+        self.ax.quiver(0, 0, 0, -axis_length, 0, 0, color='r', linewidth=2, arrow_length_ratio=0.1, linestyle='dotted', label='X (negative)')
+        self.ax.quiver(0, 0, 0, 0, axis_length, 0, color='g', linewidth=2, arrow_length_ratio=0.1, label='Y (positive)')
+        self.ax.quiver(0, 0, 0, 0, -axis_length, 0, color='g', linewidth=2, arrow_length_ratio=0.1, linestyle='dotted', label='Y (negative)')
+        self.ax.quiver(0, 0, 0, 0, 0, axis_length, color='b', linewidth=2, arrow_length_ratio=0.1, label='Z (positive)')
+        self.ax.quiver(0, 0, 0, 0, 0, -axis_length, color='b', linewidth=2, arrow_length_ratio=0.1, linestyle='dotted', label='Z (negative)')
+
         # Plot each finger
         for finger, finger_color in zip(self.fingers, self.fingers_colors):
             for _c in finger:
