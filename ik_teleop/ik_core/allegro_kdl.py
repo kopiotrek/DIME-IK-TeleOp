@@ -43,6 +43,8 @@ class AllegroKDL(object):
         self.finger_ik = FingerIK()
         self.thumb_ik_marker_publisher = rospy.Publisher(THUMB_IK_MARKER_TOPIC, Marker, queue_size=1)
         self.index_ik_marker_publisher = rospy.Publisher(INDEX_IK_MARKER_TOPIC, Marker, queue_size=1)
+        self.ring_ik_marker_publisher = rospy.Publisher(RING_IK_MARKER_TOPIC, Marker, queue_size=1)
+        self.middle_ik_marker_publisher = rospy.Publisher(MIDDLE_IK_MARKER_TOPIC, Marker, queue_size=1)
 
     
     def finger_forward_kinematics(self, finger_type, input_angles):
@@ -93,33 +95,25 @@ class AllegroKDL(object):
             marker.type = Marker.SPHERE
             marker.action = Marker.ADD
 
-            marker.scale.x = 0.05
-            marker.scale.y = 0.05
-            marker.scale.z = 0.05
+            marker.scale.x = 0.02
+            marker.scale.y = 0.02
+            marker.scale.z = 0.02
             marker.color.r = 1.0
             marker.color.g = 0.0
             marker.color.b = 0.0
             marker.color.a = 0.5  # Alpha (transparency)
 
-            input_position[0] -= 0.03
-            input_position[0] *= 1.5
-            # input_position[1] -= 0.0
-            input_position[1] *= 1.2
-            # input_position[2] -= 0.017
-            input_position[2] *= 1.2  
-            # print(f"input_position trans{input_position}")
-            # time.sleep(.3)
-
             marker.pose.position.x = input_position[0]
             marker.pose.position.y = input_position[1]
             marker.pose.position.z = input_position[2]
+
+            self.thumb_ik_marker_publisher.publish(marker)
 
             rotation_angles = (np.pi + np.deg2rad(5), 0, 0)
             input_position += [0.0182, -0.016958, 0.073288]
             input_position = rotate_point(input_position, rotation_angles)
 
-            self.thumb_ik_marker_publisher.publish(marker)
-
+            input_position += [0,0,0.03]
             output_angles = self.thumb_ik.compute_ik(input_position)
             # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
             output_angles = np.append(output_angles, 0)
@@ -156,20 +150,13 @@ class AllegroKDL(object):
             marker.color.g = 1.0
             marker.color.b = 0.0
             marker.color.a = 0.5  # Alpha (transparency)
-
-
-
-            # print(f"input_position {input_position}")
-            # input_position[0] -= 0.03
-            # input_position[0] *= 2.9
-            # input_position[1] *= 2.9
-            # input_position[2] *= 2.9
         
             marker.pose.position.x = input_position[0]
             marker.pose.position.y = input_position[1]
             marker.pose.position.z = input_position[2]
 
             self.index_ik_marker_publisher.publish(marker)
+            
             rotation_angles = (-np.deg2rad(5), 0, 0)
             input_position = rotate_point(input_position, rotation_angles)
             # print(f"input_position trans{input_position}")
@@ -191,9 +178,32 @@ class AllegroKDL(object):
             # input_position[1] *= 1.8
             # print(f"input_position trans{input_position}")
             # time.sleep(.3)
+
+            marker = Marker()
+            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
+            marker.header.stamp = rospy.Time.now()
+            marker.ns = "basic_shapes"
+            marker.id = 0
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+
+            marker.scale.x = 0.02
+            marker.scale.y = 0.02
+            marker.scale.z = 0.02
+            marker.color.r = 0.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0
+            marker.color.a = 0.5  # Alpha (transparency)
+
+            marker.pose.position.x = input_position[0]
+            marker.pose.position.y = input_position[1]
+            marker.pose.position.z = input_position[2]
+
+            self.middle_ik_marker_publisher.publish(marker)
+
             input_position += [0, 0, -0.0166]
-            rotation_angles = (0, 0, 0)
-            input_position = rotate_point(input_position, rotation_angles)
+
+
 
             output_angles = self.finger_ik.compute_ik(finger_type, input_position, curr_finger_angles)
             # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
@@ -208,6 +218,28 @@ class AllegroKDL(object):
             # input_position[1] *= 1.8
             # print(f"input_position trans{input_position}")
             # time.sleep(.3)
+
+            marker = Marker()
+            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
+            marker.header.stamp = rospy.Time.now()
+            marker.ns = "basic_shapes"
+            marker.id = 0
+            marker.type = Marker.SPHERE
+            marker.action = Marker.ADD
+
+            marker.scale.x = 0.02
+            marker.scale.y = 0.02
+            marker.scale.z = 0.02
+            marker.color.r = 0.0
+            marker.color.g = 1.0
+            marker.color.b = 0.0
+            marker.color.a = 0.5  # Alpha (transparency)
+            marker.pose.position.x = input_position[0]
+            marker.pose.position.y = input_position[1]
+            marker.pose.position.z = input_position[2]
+
+            self.ring_ik_marker_publisher.publish(marker)
+
             input_position += [0, 0.045098, -0.014293]
             rotation_angles = (-np.deg2rad(5), 0, 0)
             input_position = rotate_point(input_position, rotation_angles)

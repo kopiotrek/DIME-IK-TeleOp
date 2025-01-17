@@ -346,6 +346,7 @@ class AllegroKDLControl(AllegroKinematicControl):
         curr_angles
     ):
         tip_coord = finger_joint_coords[3]
+
         curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)  
         calc_finger_angles = self.solver.finger_inverse_kinematics(finger_type, tip_coord, curr_finger_angles)
 

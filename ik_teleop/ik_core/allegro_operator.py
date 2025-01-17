@@ -279,12 +279,12 @@ class AllegroHandOperator(Operator):
 
 
             # IK
-            desired_joint_angles = self.fingertip_solver.finger_3D_motion(
-                    finger_type = 'index',
-                    finger_joint_coords = hand_keypoints['index'],
-                    moving_avg_arr = self.moving_average_queues['index'],
-                    curr_angles = desired_joint_angles
-                )
+            # desired_joint_angles = self.fingertip_solver.finger_3D_motion(
+            #         finger_type = 'index',
+            #         finger_joint_coords = hand_keypoints['index'],
+            #         moving_avg_arr = self.moving_average_queues['index'],
+            #         curr_angles = desired_joint_angles
+            #     )
             
             # desired_joint_angles = self.fingertip_solver.finger_3D_motion(
             #         finger_type = 'middle',
@@ -293,36 +293,38 @@ class AllegroHandOperator(Operator):
             #         curr_angles = desired_joint_angles
             #     )
 
-            desired_joint_angles = self.fingertip_solver.finger_3D_motion(
-                    finger_type = 'ring',
-                    finger_joint_coords = hand_keypoints['ring'],
-                    moving_avg_arr = self.moving_average_queues['ring'],
-                    curr_angles = desired_joint_angles
-                )
-
-            desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-                    finger_type = 'middle',
-                    finger_joint_coords = hand_keypoints['middle'],
-                    metacarpals_coords = hand_keypoints['metacarpals'],
-                    curr_angles = desired_joint_angles,
-                    moving_avg_arr = self.moving_average_queues['middle']
-                )
-           
-            
-            desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-                    finger_type = 'ring',
-                    finger_joint_coords = hand_keypoints['ring'],
-                    metacarpals_coords = hand_keypoints['metacarpals'],
-                    curr_angles = desired_joint_angles,
-                    moving_avg_arr = self.moving_average_queues['ring']
-                )
-
+            # desired_joint_angles = self.fingertip_solver.finger_3D_motion(
+            #         finger_type = 'ring',
+            #         finger_joint_coords = hand_keypoints['ring'],
+            #         moving_avg_arr = self.moving_average_queues['ring'],
+            #         curr_angles = desired_joint_angles
+            #     )
             
             desired_joint_angles = self.fingertip_solver.thumb_motion_3D(
                     thumb_joint_coords = hand_keypoints['thumb'],
                     moving_avg_arr = self.moving_average_queues['thumb'],
                     curr_angles = desired_joint_angles
                 )
+
+
+            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
+            #         finger_type = 'middle',
+            #         finger_joint_coords = hand_keypoints['middle'],
+            #         metacarpals_coords = hand_keypoints['metacarpals'],
+            #         curr_angles = desired_joint_angles,
+            #         moving_avg_arr = self.moving_average_queues['middle']
+            #     )
+           
+            
+            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
+            #         finger_type = 'ring',
+            #         finger_joint_coords = hand_keypoints['ring'],
+            #         metacarpals_coords = hand_keypoints['metacarpals'],
+            #         curr_angles = desired_joint_angles,
+            #         moving_avg_arr = self.moving_average_queues['ring']
+            #     )
+
+
             # desired_joint_angles = self.finger_joint_solver.calculate_thumb_tip_angle(
             #         thumb_joint_coords = hand_keypoints['thumb'],
             #         thumb_joint_orientations = self.finger_orientations['thumb'],

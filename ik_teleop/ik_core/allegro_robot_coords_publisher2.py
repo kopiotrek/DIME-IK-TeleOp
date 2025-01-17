@@ -178,36 +178,43 @@ class AllegroHandTFListener:
 
         for transform in data.transforms:
             child_frame = transform.child_frame_id
-            try:
-                translation, rotation_matrix = self.compute_transform_chain(child_frame, "palm_link", transforms_map)
-                rotation_quaternion = quaternion_from_matrix(rotation_matrix)
+            pose = Pose()
 
-                pose = Pose()
-                pose.position.x = translation[0]
-                pose.position.y = translation[1]
-                pose.position.z = translation[2]
-                pose.orientation.x = rotation_quaternion[0]
-                pose.orientation.y = rotation_quaternion[1]
-                pose.orientation.z = rotation_quaternion[2]
-                pose.orientation.w = rotation_quaternion[3]
-                pose_array_msg.poses.append(pose)
+            if child_frame == "link_X":
+                pose.position.x = 0.0
+                pose.position.y = 0.0
+                pose.position.z = 0.0
+            else:
+                try:
+                    translation, rotation_matrix = self.compute_transform_chain(child_frame, "palm_link", transforms_map)
+                    rotation_quaternion = quaternion_from_matrix(rotation_matrix)
 
-                # rospy.loginfo(f"Joint: {child_frame}, Pose: Position({translation}), Orientation({rotation_quaternion})")
+                    pose.position.x = translation[0]
+                    pose.position.y = translation[1]
+                    pose.position.z = translation[2]    
+                    pose.orientation.x = rotation_quaternion[0]
+                    pose.orientation.y = rotation_quaternion[1]
+                    pose.orientation.z = rotation_quaternion[2]
+                    pose.orientation.w = rotation_quaternion[3]
+                    # rospy.loginfo(f"Joint: {child_frame}, Pose: Position({translation})")
 
-                if "link_3" in child_frame:
-                    pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_3.0_tip", translation, rotation_quaternion))
-                elif "link_7" in child_frame:
-                    pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_7.0_tip", translation, rotation_quaternion))
-                elif "link_11" in child_frame:
-                    pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_11.0_tip", translation, rotation_quaternion))
-                elif "link_15" in child_frame:
-                    pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_15.0_tip", translation, rotation_quaternion))
+                    # Add fingertip poses if necessary
+                    if "link_3" in child_frame:
+                        pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_3.0_tip", translation, rotation_quaternion))
+                    elif "link_7" in child_frame:
+                        pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_7.0_tip", translation, rotation_quaternion))
+                    elif "link_11" in child_frame:
+                        pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_11.0_tip", translation, rotation_quaternion))
+                    elif "link_15" in child_frame:
+                        pose_array_msg.poses.append(self.calculate_fingertip_pose("joint_15.0_tip", translation, rotation_quaternion))
 
+                except ValueError as e:
+                    rospy.logwarn(e)
 
-            except ValueError as e:
-                rospy.logwarn(e)
+            pose_array_msg.poses.append(pose)
 
         self.pub.publish(pose_array_msg)
+
 
     def apply_transform(self, base_translation, base_rotation_quaternion, urdf_translation):
         """Apply the URDF translation and rotate it by the base's rotation."""
