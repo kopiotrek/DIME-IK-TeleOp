@@ -170,7 +170,6 @@ class AllegroRetargetingOptimizer:
 
             self.finger_coords_array_np = finger_coords
             self.finger_orientation_array_np = np.array(transformed_orientations)
-            print(f"self.finger_orientation_array_np {self.finger_orientation_array_np}")
         except np.linalg.LinAlgError as e:
             rospy.logerr(f"Error computing rotation matrix: {e}")
 

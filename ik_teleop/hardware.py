@@ -87,15 +87,14 @@ class TeleOp(object):
 
         self.joint_comm_publisher.publish(desired_js)
 
-    def _clip(self, action, value):
-        return np.clip(action, -value, value)
 
-    def hand_pose(self, desired_action = np.zeros(16)):
+    def hand_pose(self, action=np.zeros(16)):
         if self.current_joint_pose == DEFAULT_VAL:
             print('No joint data received!')
             return
-        action = self._clip(desired_action, MAX_ANGLE)
-
+    
+        current_angles = np.array(self.current_joint_pose.position)  # Convert JointState to numpy array
+    
         if self.delta_control_mode is False:
             desired_angles = np.array(action)
             self.desired_joint_angles = copy(self.current_joint_pose)
@@ -105,21 +104,22 @@ class TeleOp(object):
             self.joint_comm_publisher.publish(self.desired_joint_angles)
         else:
             desired_angles = np.array(action)
-            desired_angles_delta = desired_angles - self.current_joint_pose.position
-
+            desired_angles_delta = desired_angles - current_angles  # Correct subtraction
+    
             self.desired_joint_angles_delta = copy(self.current_joint_pose)
             self.desired_joint_angles_delta.position = list(desired_angles_delta)
             self.desired_joint_angles_delta.effort = list([])
             self.desired_joint_angles_delta.velocity = list([])
             self.joint_comm_publisher_delta.publish(self.desired_joint_angles_delta)
-
+    
     def _callback_knuckle_coordinates(self, msg):
         if not self.pause:
             self.desired_joint_angles = self.allegro_hand_operator._apply_retargeted_angles()
             self.hand_pose(self.desired_joint_angles)
         else:
-            self.hand_pose(self.current_joint_pose)
-
+            if self.current_joint_pose != DEFAULT_VAL:
+                current_angles_array = np.array(self.current_joint_pose.position)  # Ensure correct type
+                self.hand_pose(current_angles_array)
 
     def teleop_loop(self):
         while not rospy.is_shutdown():
