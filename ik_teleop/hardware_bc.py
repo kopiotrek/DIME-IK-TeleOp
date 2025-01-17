@@ -5,7 +5,6 @@ import numpy as np
 from datetime import datetime
 from ik_teleop.ik_core.allegro_retargeters import AllegroKinematicControl, AllegroJointControl, AllegroKDL
 from ik_teleop.ik_core.allegro_operator import AllegroHandOperator
-from ik_teleop.ik_core.allegro_control import DexArmControl
 from ik_teleop.teleop_utils.files import *
 from ik_teleop.teleop_utils.constants import *
 from copy import deepcopy as copy
@@ -47,8 +46,7 @@ class TeleOp(object):
         self.allegroKDL = AllegroKDL()
         self.allegroJC = AllegroJointControl()
         self.allegroKC = AllegroKinematicControl()
-        # self.allegroDAC = DexArmControl()
-        self.allegro_hand_config = get_yaml_data('/home/mcw/RPL/DIME-IK-TeleOp/ik_teleop/configs/allegro_sim.yaml')
+        self.allegro_hand_config = get_yaml_data(get_path_in_package("configs/allegro_sim.yaml"))
 
         self.allegro_hand_operator = AllegroHandOperator(self.allegro_hand_config)
         self.grav_comp = DEFAULT_VAL
@@ -104,10 +102,6 @@ class TeleOp(object):
             self.desired_joint_angles_delta.effort = list([])
             self.desired_joint_angles_delta.velocity = list([])
             self.joint_comm_publisher_delta.publish(self.desired_joint_angles_delta)
-
-
-
-
 
     def _callback_knuckle_coordinates(self, msg):
         # Extract the 21 3D coordinates from the received message (21 x 3 = 63 elements)

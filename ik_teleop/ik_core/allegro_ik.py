@@ -1,11 +1,6 @@
 import numpy as np
-from scipy.spatial.transform import Rotation as R
-import matplotlib.pyplot as plt
 from scipy.optimize import minimize
 
-from numpy.linalg import norm, solve
-import time
-import pinocchio
 
 class ThumbIK:
     def __init__(self):

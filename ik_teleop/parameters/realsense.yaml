@@ -1,9 +1,0 @@
-realsense:
-  serial_numbers:
-    - '843212070304'
-    
-  resolution:
-    - 1280
-    - 720
-
-  fps: 30

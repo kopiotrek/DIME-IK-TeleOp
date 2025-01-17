@@ -5,17 +5,18 @@ from tf2_msgs.msg import TFMessage
 from geometry_msgs.msg import PoseArray, Pose
 from tf.transformations import quaternion_matrix, quaternion_from_matrix
 from xml.etree import ElementTree as ET
+from ik_teleop.teleop_utils.files import *
+
 import numpy as np
 
-class AllegroHandTFListener:
+class AllegroKeypointsPublisher:
     def __init__(self):
-        rospy.init_node('allegro_hand_tf_listener_full_pose')
-        self.urdf_file = "/home/mcw/RPL/DIME-Controllers/src/Allegro-Hand-Controller-DIME/src/allegro_hand_description/urdf/allegro_hand_description_right.urdf"
+        rospy.init_node('allegro_keypoints_publisher')
+        self.urdf_file = get_path_in_package("robot/assets/allegro_hand_right.urdf")
         rospy.Subscriber('/allegroHand/tf', TFMessage, self.tf_callback)
         self.pub = rospy.Publisher('/allegroHand/keypoints', PoseArray, queue_size=10)
         rospy.loginfo("Started Allegro Hand TF Listener Node")
         self.tree = ET.parse(self.urdf_file)
-        
     
     def parse_origin(self, element):
         xyz = element.attrib.get('xyz', '0 0 0').split()
@@ -240,5 +241,5 @@ class AllegroHandTFListener:
         rospy.spin()
 
 if __name__ == "__main__":
-    listener = AllegroHandTFListener()
+    listener = AllegroKeypointsPublisher()
     listener.run()
