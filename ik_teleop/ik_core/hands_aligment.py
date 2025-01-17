@@ -153,7 +153,7 @@ class AllegroRetargetingOptimizer:
                 link_length = np.linalg.norm(finger_joints[i] - finger_joints[i + 1])
                 total_length += link_length
 
-            print(f"{finger.capitalize()} finger total length: {total_length:.4f} meters")
+            # print(f"{finger.capitalize()} finger total length: {total_length:.4f} meters")
 
 
     def _translate_coords(self, coords):
@@ -252,26 +252,28 @@ class AllegroRetargetingOptimizer:
         # Create an empty list to store the Euclidean distances between corresponding keypoints
         self.keypoint_difference_array = []
         # Iterate over each finger and calculate the Euclidean distance between corresponding keypoints
+        # print(f"self.robot_coords {self.robot_coords}")
+        # print(f"self.finger_coords {self.finger_coords}")
         for finger in ROBOT_JOINTS_NK:
             # Get the robot's keypoints for this finger
             robot_keypoints = self.robot_coords[finger]
             # Get the oculus' keypoints for this finger
             oculus_keypoints = self.finger_coords[finger]
 
-            print(f"\nKeypoint Differences for {finger.capitalize()} Finger:")
+            # print(f"\nKeypoint Differences for {finger.capitalize()} Finger:")
 
             # Ensure both robot_keypoints and oculus_keypoints are arrays (for multiple keypoints in a finger)
             for idx, (r_point, o_point) in enumerate(zip(robot_keypoints, oculus_keypoints)):
                 formatted_r_point = np.array([f"{coord:.5f}" for coord in r_point])
                 formatted_o_point = np.array([f"{coord:.5f}" for coord in o_point])
-                print(f"  r_point {formatted_r_point} o_point {formatted_o_point}")
+                # print(f"  r_point {formatted_r_point} o_point {formatted_o_point}")
             
                 # Calculate Euclidean distance between corresponding robot and Oculus keypoints
                 translation = r_point - o_point
                 self.keypoint_translation_array.append(translation)
 
                 # Print the index and the distance
-                print(f"  Keypoint {idx + 1}: Distance = {translation} meters")
+                # print(f"  Keypoint {idx + 1}: Distance = {translation} meters")
 
     def align_hand_to_robot(self):
         # Robot finger lengths (in meters)
@@ -296,7 +298,7 @@ class AllegroRetargetingOptimizer:
             scaling_factor = robot_finger_lengths[finger] / total_length
             finger_scales[finger] = scaling_factor
             
-            print(f"Scaling factor for {finger.capitalize()} finger: {scaling_factor:.4f}")
+            # print(f"Scaling factor for {finger.capitalize()} finger: {scaling_factor:.4f}")
 
         # Apply the scaling factors and translation to align fingers with the robot's measurements
         for i in range(OCULUS_NUM_KEYPOINTS):

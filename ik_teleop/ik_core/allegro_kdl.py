@@ -7,6 +7,9 @@ from ik_teleop.teleop_utils.constants import *
 from ik_teleop.teleop_utils.vectorops import *
 from ik_teleop.ik_core.allegro_ik import ThumbIK, FingerIK 
 import time
+import warnings
+warnings.filterwarnings('ignore', category=UserWarning, module='ikpy')
+
 
 from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker
