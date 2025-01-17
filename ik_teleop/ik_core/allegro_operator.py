@@ -89,7 +89,7 @@ class AllegroHandOperator:
         return
 
     # Apply the retargeted angles to the robot
-    def _apply_retargeted_angles(self):
+    def _apply_retargeted_angles(self, finger_type):
         # while not rospy.is_shutdown():
             hand_keypoints = self.finger_coords
             desired_joint_angles = self.last_desired_joint_angles
@@ -122,33 +122,11 @@ class AllegroHandOperator:
 
             # IK
             desired_joint_angles = self.fingertip_solver.finger_3D_motion(
-                    finger_type = 'index',
-                    finger_joint_coords = hand_keypoints['index'],
-                    moving_avg_arr = self.moving_average_queues['index'],
+                    finger_type = finger_type,
+                    finger_joint_coords = hand_keypoints[finger_type],
+                    moving_avg_arr = self.moving_average_queues[finger_type],
                     curr_angles = desired_joint_angles
                 )
-            
-            desired_joint_angles = self.fingertip_solver.finger_3D_motion(
-                    finger_type = 'middle',
-                    finger_joint_coords = hand_keypoints['middle'],
-                    moving_avg_arr = self.moving_average_queues['middle'],
-                    curr_angles = desired_joint_angles
-                )
-
-            desired_joint_angles = self.fingertip_solver.finger_3D_motion(
-                    finger_type = 'ring',
-                    finger_joint_coords = hand_keypoints['ring'],
-                    moving_avg_arr = self.moving_average_queues['ring'],
-                    curr_angles = desired_joint_angles
-                )
-            
-            desired_joint_angles = self.fingertip_solver.thumb_motion_3D(
-                    thumb_joint_coords = hand_keypoints['thumb'],
-                    moving_avg_arr = self.moving_average_queues['thumb'],
-                    curr_angles = desired_joint_angles
-                )
-
-
 
             self.last_desired_joint_angles = desired_joint_angles
 

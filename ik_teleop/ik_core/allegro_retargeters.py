@@ -249,20 +249,3 @@ class AllegroKDLControl(AllegroKinematicControl):
         
         desired_angles = self.calculate_desired_angles('thumb', transformed_coords, moving_avg_arr, curr_angles)
         return desired_angles
-
-
-    def thumb_motion_3D(
-        self, 
-        thumb_joint_coords, 
-        moving_avg_arr, 
-        curr_angles
-    ):
-        # Compute the desired joint angles based on the transformed coordinates
-        return self.calculate_desired_angles(
-            'thumb', 
-            thumb_joint_coords, 
-            moving_avg_arr, 
-            curr_angles
-        )
-
-        

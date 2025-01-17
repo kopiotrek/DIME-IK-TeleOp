@@ -3,7 +3,7 @@ import os
 from geometry_msgs.msg import PoseArray
 import numpy as np
 from datetime import datetime
-from ik_teleop.ik_core.allegro_retargeters import AllegroKinematicControl, AllegroJointControl, AllegroKDL
+from ik_teleop.ik_core.allegro_retargeters import AllegroKDL
 from ik_teleop.ik_core.allegro_operator import AllegroHandOperator
 from ik_teleop.teleop_utils.files import *
 from ik_teleop.teleop_utils.constants import *
@@ -13,25 +13,20 @@ from std_msgs.msg import Bool
 import time
 
 
-MAX_ANGLE = 2.1
-
 # List of all ROS Topics
 XR_KEYPOINTS_TOPIC = '/XR/keypoints_transformed' 
 PAUSE_TELEOP_TOPIC = '/XR/Pause' 
 JOINT_STATE_TOPIC = '/allegroHand/joint_states' 
-GRAV_COMP_TOPIC = '/allegroHand/grav_comp_torques' 
 COMM_JOINT_STATE_TOPIC = '/allegroHand/commanded_joint_states' 
 JOINT_COMM_TOPIC = '/allegroHand/joint_cmd'
 JOINT_COMM_DELTA_TOPIC = '/allegroHand/joint_cmd_delta'
 # JOINT_COMM_TOPIC = '/kth_franka_plant/in/allegro_cmd'
-DEFAULT_VAL = None
 
 class TeleOp(object):
     def __init__(self):
     # def __init__(self, record_demo=False, hide_window=False, cfg=None, enable_moving_average=True):
         # Initialize ROS subscriber to get 3D hand knuckle coordinates
         if not rospy.core.is_initialized():
-            # rospy.init_node('allegro_hand_operator', anonymous=True)
             try:
                 rospy.init_node('hardware_teleop')
             except rospy.ROSException as e:
@@ -41,17 +36,12 @@ class TeleOp(object):
             0.21581194, 0.0, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
         self.desired_joint_angles_delta = np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
             0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
-        
-        # Initialize AllegroKDL for inverse kinematics
-        self.allegroKDL = AllegroKDL()
-        self.allegroJC = AllegroJointControl()
-        self.allegroKC = AllegroKinematicControl()
+        self.finger_type = None
         self.allegro_hand_config = get_yaml_data(get_path_in_package("configs/allegro_sim.yaml"))
 
         self.allegro_hand_operator = AllegroHandOperator(self.allegro_hand_config)
-        self.grav_comp = DEFAULT_VAL
-        self.current_joint_pose = DEFAULT_VAL
-        self.cmd_joint_state = DEFAULT_VAL
+        self.current_joint_pose = None
+        self.cmd_joint_state = None
         self.pause = True
         self.delta_control_mode = True
 
@@ -89,7 +79,7 @@ class TeleOp(object):
 
 
     def hand_pose(self, action=np.zeros(16)):
-        if self.current_joint_pose == DEFAULT_VAL:
+        if self.current_joint_pose == None:
             print('No joint data received!')
             return
     
@@ -114,19 +104,16 @@ class TeleOp(object):
     
     def _callback_knuckle_coordinates(self, msg):
         if not self.pause:
-            self.desired_joint_angles = self.allegro_hand_operator._apply_retargeted_angles()
+            self.desired_joint_angles = self.allegro_hand_operator._apply_retargeted_angles(self.finger_type)
             self.hand_pose(self.desired_joint_angles)
         else:
-            if self.current_joint_pose != DEFAULT_VAL:
+            if self.current_joint_pose != None:
                 current_angles_array = np.array(self.current_joint_pose.position)  # Ensure correct type
                 self.hand_pose(current_angles_array)
 
-    def teleop_loop(self):
+    def control_finger(self, finger_type):
+        self.finger_type = finger_type
         while not rospy.is_shutdown():
             continue
-                    
-if __name__ == '__main__':
-    main = TeleOp()
 
-    main.teleop_loop()
 
