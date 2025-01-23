@@ -74,7 +74,6 @@ class TeleOp(object):
         desired_js.position = list(desired_angles)
         desired_js.effort = list([])
         desired_js.velocity = list([])
-
         self.joint_comm_publisher.publish(desired_js)
 
 

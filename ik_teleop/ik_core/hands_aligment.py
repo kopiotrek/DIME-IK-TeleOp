@@ -203,25 +203,25 @@ class AllegroRetargetingOptimizer:
         # Update finger coordinate dictionary
         self.finger_coords = dict(
             wrist=self.finger_coords_array_np[OCULUS_JOINTS['wrist']],
-            palm=self.finger_coords_array_np[OCULUS_JOINTS['palm']],
+            # palm=self.finger_coords_array_np[OCULUS_JOINTS['palm']],
             thumb=self.finger_coords_array_np[OCULUS_JOINTS['thumb']],
             index=self.finger_coords_array_np[OCULUS_JOINTS['index']],
             middle=self.finger_coords_array_np[OCULUS_JOINTS['middle']],
             ring=self.finger_coords_array_np[OCULUS_JOINTS['ring']],
-            little=self.finger_coords_array_np[OCULUS_JOINTS['little']],
-            metacarpals=self.finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
+            # little=self.finger_coords_array_np[OCULUS_JOINTS['little']],
+            # metacarpals=self.finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
             knuckles=self.finger_coords_array_np[OCULUS_JOINTS['knuckles']],
         )
         # Update finger orientation dictionary
         self.finger_orientations = dict(
             wrist=self.finger_orientation_array_np[OCULUS_JOINTS['wrist']],
-            palm=self.finger_orientation_array_np[OCULUS_JOINTS['palm']],
+            # palm=self.finger_orientation_array_np[OCULUS_JOINTS['palm']],
             thumb=self.finger_orientation_array_np[OCULUS_JOINTS['thumb']],
             index=self.finger_orientation_array_np[OCULUS_JOINTS['index']],
             middle=self.finger_orientation_array_np[OCULUS_JOINTS['middle']],
             ring=self.finger_orientation_array_np[OCULUS_JOINTS['ring']],
-            little=self.finger_orientation_array_np[OCULUS_JOINTS['little']],
-            metacarpals=self.finger_orientation_array_np[OCULUS_JOINTS['metacarpals']],
+            # little=self.finger_orientation_array_np[OCULUS_JOINTS['little']],
+            # metacarpals=self.finger_orientation_array_np[OCULUS_JOINTS['metacarpals']],
             knuckles=self.finger_orientation_array_np[OCULUS_JOINTS['knuckles']],
         )
 

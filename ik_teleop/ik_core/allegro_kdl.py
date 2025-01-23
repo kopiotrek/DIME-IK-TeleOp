@@ -89,6 +89,7 @@ class AllegroKDL(object):
         if finger_type == 'thumb':
             # print(f"input_position {input_position}")
             # time.sleep(.3)
+            input_position += [0,0,-0.03]
 
             marker = Marker()
             marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
@@ -116,7 +117,6 @@ class AllegroKDL(object):
             input_position += [0.0182, -0.016958, 0.073288]
             input_position = rotate_point(input_position, rotation_angles)
 
-            input_position += [0,0,0.03]
             output_angles = self.thumb_ik.compute_ik(input_position)
             # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
             output_angles = np.append(output_angles, 0)
@@ -137,6 +137,9 @@ class AllegroKDL(object):
             # input_position = [ip_x[2],-ip_x[1],-ip_x[0]]
             
             # input_position = [0.0, 0.0, 0.1527]
+
+            input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
+
 
             marker = Marker()
             marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
@@ -181,6 +184,7 @@ class AllegroKDL(object):
             # input_position[1] *= 1.8
             # print(f"input_position trans{input_position}")
             # time.sleep(.3)
+            input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
 
             marker = Marker()
             marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
@@ -221,6 +225,7 @@ class AllegroKDL(object):
             # input_position[1] *= 1.8
             # print(f"input_position trans{input_position}")
             # time.sleep(.3)
+            input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
 
             marker = Marker()
             marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
