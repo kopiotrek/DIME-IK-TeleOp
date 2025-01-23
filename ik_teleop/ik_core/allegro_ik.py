@@ -5,7 +5,6 @@ from scipy.optimize import minimize
 class ThumbIK:
     def __init__(self):
         self.articulation_chain = [{"position": 0.225} for _ in range(4)]
-        # self.articulation_chain = [{"position": 0.225} for _ in range(3)]
         self.position = np.zeros(3)
         self.rotation = np.eye(3)
         self.x_des = np.eye(4)
@@ -23,7 +22,7 @@ class ThumbIK:
             [0.0, 0.0,  np.pi/2,           joint_angles[0]],          # Joint 1
             [0.0, 0.0554,  -np.pi/2,       joint_angles[1]-np.pi/2], # Joint 2
             [0.0514, 0.0,  0.0,            joint_angles[2]-np.pi/2],          # Joint 3
-            [0.0593, 0.0,  0.0,            joint_angles[3]]           # Joint 4 (End-Effector)
+            [0.0593, 0.0,  0.0,            joint_angles[3]]           # Joint 4
         ]
 
     def get_transformation_matrix(self, i, dh):
@@ -90,13 +89,6 @@ class FingerIK:
         self.q_max = np.array([0.57, 1.71, 1.809, 1.718])    # Maximum joint angles
 
     def set_dh_params(self, joint_angles):
-        # self.dh_params = [
-        #     # Trans Z, Trans X, Rot X, Rot Z
-        #     [0.0, 0.0166,  np.pi/2,           joint_angles[0]+np.pi],          # Joint 1
-        #     [0.054, 0.0,   0.0,             joint_angles[1]],         # Joint 2
-        #     [0.0384,0.0,   0.0,            joint_angles[2]],          # Joint 3
-        #     [0.0437,0.0,   0.0,            joint_angles[3]]           # Joint 4
-        # ]
 
         self.dh_params = [
             # Trans X, Trans Z, Rot X, Rot Z
@@ -104,7 +96,6 @@ class FingerIK:
             [0.054,     0.0,     0.0,               joint_angles[1]-np.pi/2],         # Joint 2
             [0.0384,    0.0,     0.0,               joint_angles[2]],          # Joint 3
             [0.02,    0.0,     0.0,               joint_angles[3]]           # Joint 4
-            # [0.0437,    0.0,     0.0,               joint_angles[3]]           # Joint 4
         ]
 
     def get_transformation_matrix(self, i, dh):
@@ -131,13 +122,6 @@ class FingerIK:
         Compute inverse kinematics using optimizaboundstion with joint limits.
         """
 
-#-Z , -Y , X
-        # desired_position = [0.03,-0.03,0.06]
-        # desired_position = [-0.13,0.0,0.0]
-        # desired_position = [-0.05,0.0,0.08]
-        # desired_position
-
-
         if finger_type == 'index':
             finger_index = 0
         elif finger_type == 'middle':
@@ -158,8 +142,6 @@ class FingerIK:
             # print(f"pos_error**2 {np.sum(pos_error**2)} variance_penalty {variance_penalty}")
             return np.sum(pos_error**2) + variance_penalty
 
-        # Initial joint angles
-        # print(q0)
         # Bounds for joint limits as a sequence of (min, max) pairs
         bounds = [(self.q_min[i], self.q_max[i]) for i in range(len(q0))]
 

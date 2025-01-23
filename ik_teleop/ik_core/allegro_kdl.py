@@ -11,7 +11,6 @@ import warnings
 warnings.filterwarnings('ignore', category=UserWarning, module='ikpy')
 
 
-from geometry_msgs.msg import Point
 from visualization_msgs.msg import Marker
 
 THUMB_IK_MARKER_TOPIC = '/ik_marker/thumb'
@@ -79,6 +78,26 @@ class AllegroKDL(object):
         return output_frame[:3, 3], output_frame[:3, :3]
 
     
+    def create_marker_msg(self, position, scale, r, g, b, a):
+        marker = Marker()
+        marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
+        marker.header.stamp = rospy.Time.now()
+        marker.ns = "basic_shapes"
+        marker.id = 0
+        marker.type = Marker.SPHERE
+        marker.action = Marker.ADD
+        marker.scale.x = scale
+        marker.scale.y = scale
+        marker.scale.z = scale
+        marker.color.r = r
+        marker.color.g = g
+        marker.color.b = b
+        marker.color.a = a  # Alpha (transparency)
+        marker.pose.position.x = position[0]
+        marker.pose.position.y = position[1]
+        marker.pose.position.z = position[2]
+        return marker
+
 
     def finger_inverse_kinematics(self, finger_type, input_position, curr_finger_angles):
         # Checking if the input figner type is a valid one
@@ -91,27 +110,7 @@ class AllegroKDL(object):
             # time.sleep(.3)
             input_position += [0,0,-0.03]
 
-            marker = Marker()
-            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
-            marker.header.stamp = rospy.Time.now()
-            marker.ns = "basic_shapes"
-            marker.id = 0
-            marker.type = Marker.SPHERE
-            marker.action = Marker.ADD
-
-            marker.scale.x = 0.02
-            marker.scale.y = 0.02
-            marker.scale.z = 0.02
-            marker.color.r = 1.0
-            marker.color.g = 0.0
-            marker.color.b = 0.0
-            marker.color.a = 0.5  # Alpha (transparency)
-
-            marker.pose.position.x = input_position[0]
-            marker.pose.position.y = input_position[1]
-            marker.pose.position.z = input_position[2]
-
-            self.thumb_ik_marker_publisher.publish(marker)
+            self.thumb_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 1, 0, 0, 0.5))
 
             rotation_angles = (np.pi + np.deg2rad(5), 0, 0)
             input_position += [0.0182, -0.016958, 0.073288]
@@ -140,28 +139,7 @@ class AllegroKDL(object):
 
             input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
 
-
-            marker = Marker()
-            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
-            marker.header.stamp = rospy.Time.now()
-            marker.ns = "basic_shapes"
-            marker.id = 0
-            marker.type = Marker.SPHERE
-            marker.action = Marker.ADD
-
-            marker.scale.x = 0.02
-            marker.scale.y = 0.02
-            marker.scale.z = 0.02
-            marker.color.r = 0.0
-            marker.color.g = 1.0
-            marker.color.b = 0.0
-            marker.color.a = 0.5  # Alpha (transparency)
-        
-            marker.pose.position.x = input_position[0]
-            marker.pose.position.y = input_position[1]
-            marker.pose.position.z = input_position[2]
-
-            self.index_ik_marker_publisher.publish(marker)
+            self.index_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
             
             rotation_angles = (-np.deg2rad(5), 0, 0)
             input_position = rotate_point(input_position, rotation_angles)
@@ -186,27 +164,8 @@ class AllegroKDL(object):
             # time.sleep(.3)
             input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
 
-            marker = Marker()
-            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
-            marker.header.stamp = rospy.Time.now()
-            marker.ns = "basic_shapes"
-            marker.id = 0
-            marker.type = Marker.SPHERE
-            marker.action = Marker.ADD
+            self.middle_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
 
-            marker.scale.x = 0.02
-            marker.scale.y = 0.02
-            marker.scale.z = 0.02
-            marker.color.r = 0.0
-            marker.color.g = 1.0
-            marker.color.b = 0.0
-            marker.color.a = 0.5  # Alpha (transparency)
-
-            marker.pose.position.x = input_position[0]
-            marker.pose.position.y = input_position[1]
-            marker.pose.position.z = input_position[2]
-
-            self.middle_ik_marker_publisher.publish(marker)
 
             input_position += [0, 0, -0.0166]
 
@@ -227,26 +186,7 @@ class AllegroKDL(object):
             # time.sleep(.3)
             input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
 
-            marker = Marker()
-            marker.header.frame_id = "palm_link"  # Change to your frame of reference if needed
-            marker.header.stamp = rospy.Time.now()
-            marker.ns = "basic_shapes"
-            marker.id = 0
-            marker.type = Marker.SPHERE
-            marker.action = Marker.ADD
-
-            marker.scale.x = 0.02
-            marker.scale.y = 0.02
-            marker.scale.z = 0.02
-            marker.color.r = 0.0
-            marker.color.g = 1.0
-            marker.color.b = 0.0
-            marker.color.a = 0.5  # Alpha (transparency)
-            marker.pose.position.x = input_position[0]
-            marker.pose.position.y = input_position[1]
-            marker.pose.position.z = input_position[2]
-
-            self.ring_ik_marker_publisher.publish(marker)
+            self.ring_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
 
             input_position += [0, 0.045098, -0.014293]
             rotation_angles = (-np.deg2rad(5), 0, 0)
@@ -268,7 +208,6 @@ class AllegroKDL(object):
         middle_coords = self.finger_forward_kinematics('middle', joint_positions[OCULUS_JOINTS['middle']])[0]
         ring_coords = self.finger_forward_kinematics('ring', joint_positions[OCULUS_JOINTS['ring']])[0]
         thumb_coords = self.finger_forward_kinematics('thumb', joint_positions[OCULUS_JOINTS['thumb']])[0]
-        # thumb_coords = self.finger_inverse_kinematics('thumb', joint_positions[OCULUS_JOINTS['thumb']])[0]
 
 
         finger_tip_coords = np.hstack([index_coords, middle_coords, ring_coords, thumb_coords])

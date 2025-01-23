@@ -91,7 +91,6 @@ class AllegroHandOperator:
     # Apply the retargeted angles to the robot
     def _apply_retargeted_angles(self, finger_type):
         # while not rospy.is_shutdown():
-            hand_keypoints = self.finger_coords
             desired_joint_angles = self.last_desired_joint_angles
             
             # Angles
@@ -123,7 +122,7 @@ class AllegroHandOperator:
             # IK
             desired_joint_angles = self.fingertip_solver.finger_3D_motion(
                     finger_type = finger_type,
-                    finger_joint_coords = hand_keypoints[finger_type],
+                    finger_joint_coords = self.finger_coords[finger_type],
                     moving_avg_arr = self.moving_average_queues[finger_type],
                     curr_angles = desired_joint_angles
                 )
