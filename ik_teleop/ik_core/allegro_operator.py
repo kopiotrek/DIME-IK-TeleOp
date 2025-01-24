@@ -52,39 +52,31 @@ class AllegroHandOperator:
     def _get_joints_poses(self, msg):
         finger_coords_array = []
         finger_orientation_array = []
-        if len(msg.poses) < OCULUS_NUM_KEYPOINTS - len(OCULUS_JOINTS['little']):
+        if len(msg.poses) < OCULUS_NUM_KEYPOINTS_TRANSFORMED:
             print("ERROR: not enough joints received")
             return
-        for i in range(OCULUS_NUM_KEYPOINTS - len(OCULUS_JOINTS['little'])):
+        for i in range(OCULUS_NUM_KEYPOINTS_TRANSFORMED):
             # finger_poses_array.append(msg.poses[i])
             finger_coords_array.append(self.position_to_array(msg.poses[i].position))     
         finger_coords_array_np = np.array(finger_coords_array)
-        for i in range(OCULUS_NUM_KEYPOINTS - len(OCULUS_JOINTS['little'])):
+        for i in range(OCULUS_NUM_KEYPOINTS_TRANSFORMED):
             # finger_poses_array.append(msg.poses[i])
             finger_orientation_array.append(self.orientation_to_array(msg.poses[i].orientation)) 
         finger_orientation_array_np = np.array(finger_orientation_array)
         self.finger_coords = dict(
-            wrist = finger_coords_array_np[OCULUS_JOINTS['wrist']],
-            palm = finger_coords_array_np[OCULUS_JOINTS['palm']],
-            thumb = finger_coords_array_np[OCULUS_JOINTS['thumb']],
-            index = finger_coords_array_np[OCULUS_JOINTS['index']],
-            middle = finger_coords_array_np[OCULUS_JOINTS['middle']],
-            ring = finger_coords_array_np[OCULUS_JOINTS['ring']],
-            # little =  finger_coords_array_np[OCULUS_JOINTS['little']],
-            metacarpals =  finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
-            # knuckles =  finger_coords_array_np[OCULUS_JOINTS['knuckles']],
+            wrist = finger_coords_array_np[OCULUS_JOINTS_TRANSFOMED['wrist']],
+            index = finger_coords_array_np[OCULUS_JOINTS_TRANSFOMED['index']],
+            middle = finger_coords_array_np[OCULUS_JOINTS_TRANSFOMED['middle']],
+            ring = finger_coords_array_np[OCULUS_JOINTS_TRANSFOMED['ring']],
+            thumb = finger_coords_array_np[OCULUS_JOINTS_TRANSFOMED['thumb']],
         )
 
         self.finger_orientations = dict(
-            wrist = finger_orientation_array_np[OCULUS_JOINTS['wrist']],
-            palm = finger_orientation_array_np[OCULUS_JOINTS['palm']],
-            thumb = finger_orientation_array_np[OCULUS_JOINTS['thumb']],
-            index = finger_orientation_array_np[OCULUS_JOINTS['index']],
-            middle = finger_orientation_array_np[OCULUS_JOINTS['middle']],
-            ring = finger_orientation_array_np[OCULUS_JOINTS['ring']],
-            # little =  finger_orientation_array_np[OCULUS_JOINTS['little']],
-            metacarpals =  finger_orientation_array_np[OCULUS_JOINTS['metacarpals']],
-            # knuckles =  finger_orientation_array_np[OCULUS_JOINTS['knuckles']],
+            wrist = finger_orientation_array_np[OCULUS_JOINTS_TRANSFOMED['wrist']],
+            index = finger_orientation_array_np[OCULUS_JOINTS_TRANSFOMED['index']],
+            middle = finger_orientation_array_np[OCULUS_JOINTS_TRANSFOMED['middle']],
+            ring = finger_orientation_array_np[OCULUS_JOINTS_TRANSFOMED['ring']],
+            thumb = finger_coords_array_np[OCULUS_JOINTS_TRANSFOMED['thumb']],
         )
         return
 

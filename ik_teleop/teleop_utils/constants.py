@@ -13,6 +13,7 @@ WRIST_HOME_STATE = {
 
 # Joint Information
 OCULUS_NUM_KEYPOINTS = 26
+OCULUS_NUM_KEYPOINTS_TRANSFORMED = 17
 #VR_THUMB_BOUND_VERTICES = 8
 VR_THUMB_BOUND_VERTICES = 4
 GRIPPER_OPEN=0
@@ -48,11 +49,19 @@ OCULUS_JOINTS = {
     'metacarpals': [2, 6, 11, 16, 21],
     'knuckles': [7, 12, 17, 22],
 }
+OCULUS_JOINTS_TRANSFOMED = {
+    'wrist': [0],
+    'index': [1, 2, 3, 4],
+    'middle': [5, 6, 7, 8],
+    'ring': [9, 10, 11, 12],
+    'thumb': [13, 14, 15, 16],
+}
 OCULUS_VIEW_LIMITS = {
     'x_limits': [-0.04, 0.04],
     'y_limits': [-0.02, 0.25],
     'z_limits': [-0.04, 0.04]
 }
+
 
 VR_FREQ = 60
 BIMANUAL_VR_FREQ = 90
