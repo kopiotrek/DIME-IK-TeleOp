@@ -90,14 +90,20 @@ class FingerIK:
 
     def set_dh_params(self, joint_angles):
 
+        # self.dh_params = [
+        #     # Trans X, Trans Z, Rot X, Rot Z
+        #     [0.0,       0.0166,  -np.pi/2,          joint_angles[0]],          # Joint 1
+        #     [0.054,     0.0,     0.0,               joint_angles[1]-np.pi/2],         # Joint 2
+        #     [0.0384,    0.0,     0.0,               joint_angles[2]],          # Joint 3
+        #     [0.0437,    0.0,     0.0,               joint_angles[3]]           # Joint 4
+        # ]
         self.dh_params = [
             # Trans X, Trans Z, Rot X, Rot Z
-            [0.0,       0.0166,  -np.pi/2,          joint_angles[0]],          # Joint 1
+            [0.0,       0.0166,  -np.pi/2,          0],          # Joint 1
             [0.054,     0.0,     0.0,               joint_angles[1]-np.pi/2],         # Joint 2
             [0.0384,    0.0,     0.0,               joint_angles[2]],          # Joint 3
-            [0.02,    0.0,     0.0,               joint_angles[3]]           # Joint 4
+            [0.0437,    0.0,     0.0,               joint_angles[3]]           # Joint 4
         ]
-
     def get_transformation_matrix(self, i, dh):
         a, d, alpha, theta = dh[i]
         # a = trans_x
@@ -151,7 +157,7 @@ class FingerIK:
             q0,
             method='SLSQP',
             bounds=bounds,
-            options={'ftol': 1e-10, 'maxiter': 1000}
+            options={'ftol': 1e-10, 'maxiter': 100}
         )
 
         if result.success:
@@ -159,11 +165,11 @@ class FingerIK:
             q = result.x
             self.set_dh_params(q0)
             self.compute_TEE(finger_index)
-            pos_error = desired_position - self.TEE[:3, 3]
-            print(f"actual_position: {self.TEE[:3, 3]}")
-            print(f"desired_position: {desired_position}")
-            print(f"pos_error: {pos_error}")
-            print(f"q: {q}")
+            # pos_error = desired_position - self.TEE[:3, 3]
+            # print(f"actual_position: {self.TEE[:3, 3]}")
+            # print(f"desired_position: {desired_position}")
+            # print(f"pos_error: {pos_error}")
+            # print(f"q: {q}")
         else:
             print("IK did not converge.")
             q = q0  # Return initial guess or handle as needed

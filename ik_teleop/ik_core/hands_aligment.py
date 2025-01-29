@@ -22,7 +22,6 @@ ROBOT_JOINTS_NK = {
     'middle': [4, 5, 6, 7],
     'ring': [8, 9, 10, 11],
     'thumb': [12, 13, 14, 15],
-    # 'knuckles': [16, 17, 18, 19],
 }
 
 ROBOT_KEYPOINTS_COUNT = 20
@@ -33,9 +32,9 @@ class AllegroRetargetingOptimizer:
 
         rospy.Subscriber('/allegroHand/keypoints', PoseArray, callback=self._get_robot_joints_poses, queue_size=1)
 
-        rospy.Subscriber('/XR/JointPoseArray', PoseArray, callback=self._get_XR_joints_poses, queue_size=1)
-        self.pub_mod = rospy.Publisher('/XR/keypoints_transformed', PoseArray, queue_size=10)
-        self.pub = rospy.Publisher('/XR/keypoints', PoseArray, queue_size=10)
+        rospy.Subscriber('/quest/joint_poses', PoseArray, callback=self._get_XR_joints_poses, queue_size=1)
+        self.pub_mod = rospy.Publisher('/quest/keypoints_transformed', PoseArray, queue_size=10)
+        self.pub = rospy.Publisher('/quest/keypoints', PoseArray, queue_size=10)
 
         self.finger_coords = []
         self.finger_orientations = []
@@ -146,26 +145,18 @@ class AllegroRetargetingOptimizer:
         # Update finger coordinate dictionary
         self.finger_coords = dict(
             wrist=self.finger_coords_array_np[OCULUS_JOINTS['wrist']],
-            # palm=self.finger_coords_array_np[OCULUS_JOINTS['palm']],
             thumb=self.finger_coords_array_np[OCULUS_JOINTS['thumb']],
             index=self.finger_coords_array_np[OCULUS_JOINTS['index']],
             middle=self.finger_coords_array_np[OCULUS_JOINTS['middle']],
             ring=self.finger_coords_array_np[OCULUS_JOINTS['ring']],
-            # little=self.finger_coords_array_np[OCULUS_JOINTS['little']],
-            # metacarpals=self.finger_coords_array_np[OCULUS_JOINTS['metacarpals']],
-            # knuckles=self.finger_coords_array_np[OCULUS_JOINTS['knuckles']],
         )
         # Update finger orientation dictionary
         self.finger_orientations = dict(
             wrist=self.finger_orientation_array_np[OCULUS_JOINTS['wrist']],
-            # palm=self.finger_orientation_array_np[OCULUS_JOINTS['palm']],
             thumb=self.finger_orientation_array_np[OCULUS_JOINTS['thumb']],
             index=self.finger_orientation_array_np[OCULUS_JOINTS['index']],
             middle=self.finger_orientation_array_np[OCULUS_JOINTS['middle']],
             ring=self.finger_orientation_array_np[OCULUS_JOINTS['ring']],
-            # little=self.finger_orientation_array_np[OCULUS_JOINTS['little']],
-            # metacarpals=self.finger_orientation_array_np[OCULUS_JOINTS['metacarpals']],
-            # knuckles=self.finger_orientation_array_np[OCULUS_JOINTS['knuckles']],
         )
 
         
@@ -186,7 +177,6 @@ class AllegroRetargetingOptimizer:
             middle = robot_coords_array_np[ROBOT_JOINTS_RAW['middle']],
             ring = robot_coords_array_np[ROBOT_JOINTS_RAW['ring']],
             thumb = robot_coords_array_np[ROBOT_JOINTS_RAW['thumb']],
-            # knuckles = robot_coords_array_np[ROBOT_JOINTS_RAW['knuckles']],
         )
 
 
@@ -257,46 +247,6 @@ class AllegroRetargetingOptimizer:
                         self.finger_coords[finger][joint_idx] += self.keypoint_translation_array[translation_array_offset[finger]]
                     else:
                         self.finger_coords[finger][joint_idx] += self.keypoint_translation_array[translation_array_offset[finger]]
-
-
-
-        # for i in range(OCULUS_NUM_KEYPOINTS):
-        #     # if i in OCULUS_JOINTS['index'] and i is not OCULUS_JOINTS['index'][0]:
-        #     #     scale = finger_scales['index']
-        #     #     tmp_coord = self.finger_coords_array_np[i] - self.finger_coords_array_np[OCULUS_JOINTS['index'][0]]
-        #     #     tmp_coord *= scale
-        #     #     self.finger_coords_array_np[i] = tmp_coord + self.finger_coords_array_np[OCULUS_JOINTS['index'][0]]
-        #     #     self.finger_coords_array_np[i] += self.keypoint_translation_array[0]
-        #     # if i is OCULUS_JOINTS['index'][0]:
-        #     #     self.finger_coords_array_np[i] += self.keypoint_translation_array[0]
-
-        #     if i in OCULUS_JOINTS['middle'] and i is not OCULUS_JOINTS['middle'][0]:
-        #         scale = finger_scales['middle']
-        #         tmp_coord = self.finger_coords_array_np[i] - self.finger_coords_array_np[OCULUS_JOINTS['middle'][0]]
-        #         tmp_coord *= scale
-        #         self.finger_coords_array_np[i] = tmp_coord + self.finger_coords_array_np[OCULUS_JOINTS['middle'][0]]
-        #         self.finger_coords_array_np[i] += self.keypoint_translation_array[4]
-        #     elif i is OCULUS_JOINTS['middle'][0]:
-        #         self.finger_coords_array_np[i] += self.keypoint_translation_array[4]
-
-        #     elif i in OCULUS_JOINTS['ring'] and i is not OCULUS_JOINTS['ring'][0]:
-        #         scale = finger_scales['ring']
-        #         tmp_coord = self.finger_coords_array_np[i] - self.finger_coords_array_np[OCULUS_JOINTS['ring'][0]]
-        #         tmp_coord *= scale
-        #         self.finger_coords_array_np[i] = tmp_coord + self.finger_coords_array_np[OCULUS_JOINTS['ring'][0]]
-        #         self.finger_coords_array_np[i] += self.keypoint_translation_array[8]
-        #     elif i is OCULUS_JOINTS['ring'][0]:
-        #         self.finger_coords_array_np[i] += self.keypoint_translation_array[8]
-
-        #     elif i in OCULUS_JOINTS['thumb'] and i is not OCULUS_JOINTS['thumb'][0]:
-        #         scale = finger_scales['thumb']
-        #         tmp_coord = self.finger_coords_array_np[i] - self.finger_coords_array_np[OCULUS_JOINTS['thumb'][0]]
-        #         tmp_coord *= scale
-        #         self.finger_coords_array_np[i] = tmp_coord + self.finger_coords_array_np[OCULUS_JOINTS['thumb'][0]]
-        #         self.finger_coords_array_np[i] += self.keypoint_translation_array[12]
-        #     elif i is OCULUS_JOINTS['thumb'][0]:
-        #         self.finger_coords_array_np[i] += self.keypoint_translation_array[12]
-
 
         self.keypoint_translation_array = []
 

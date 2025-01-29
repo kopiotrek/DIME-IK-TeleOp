@@ -16,7 +16,7 @@ class AllegroHandOperator:
                 rospy.init_node('allegro_hand_operator')
             except rospy.ROSInterruptException:
                 pass
-        self._transformed_hand_keypoint_subscriber = rospy.Subscriber('XR/keypoints_transformed', PoseArray, callback=self._get_joints_poses, queue_size=1)
+        self._transformed_hand_keypoint_subscriber = rospy.Subscriber('/quest/keypoints_transformed', PoseArray, callback=self._get_joints_poses, queue_size=1)
         JOINT_COUNT = 26
         # Initializing the  finger configs
         self.finger_configs = finger_configs
@@ -84,32 +84,6 @@ class AllegroHandOperator:
     def _apply_retargeted_angles(self, finger_type):
         # while not rospy.is_shutdown():
             desired_joint_angles = self.last_desired_joint_angles
-            
-            # Angles
-            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-            #         finger_type = 'index',
-            #         finger_joint_coords = hand_keypoints['index'],
-            #         metacarpals_coords = hand_keypoints['metacarpals'],
-            #         curr_angles = desired_joint_angles,
-            #         moving_avg_arr = self.moving_average_queues['index']
-            #     )
-
-            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-            #         finger_type = 'middle',
-            #         finger_joint_coords = hand_keypoints['middle'],
-            #         metacarpals_coords = hand_keypoints['metacarpals'],
-            #         curr_angles = desired_joint_angles,
-            #         moving_avg_arr = self.moving_average_queues['middle']
-            #     )
-           
-            
-            # desired_joint_angles = self.finger_joint_solver.calculate_finger_angles(
-            #         finger_type = 'ring',
-            #         finger_joint_coords = hand_keypoints['ring'],
-            #         metacarpals_coords = hand_keypoints['metacarpals'],
-            #         curr_angles = desired_joint_angles,
-            #         moving_avg_arr = self.moving_average_queues['ring']
-            #     )
 
             # IK
             desired_joint_angles = self.fingertip_solver.finger_3D_motion(

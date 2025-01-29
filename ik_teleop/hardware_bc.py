@@ -16,8 +16,8 @@ import time
 MAX_ANGLE = 2.1
 
 # List of all ROS Topics
-JOINT_POSE_TOPIC = '/XR/JointPoseArray' 
-PAUSE_TELEOP_TOPIC = '/XR/Pause' 
+JOINT_POSE_TOPIC = '/quest/joint_poses' 
+PAUSE_TELEOP_TOPIC = '/quest/pause' 
 JOINT_STATE_TOPIC = '/allegroHand/joint_states' 
 GRAV_COMP_TOPIC = '/allegroHand/grav_comp_torques' 
 COMM_JOINT_STATE_TOPIC = '/allegroHand/commanded_joint_states' 

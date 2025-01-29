@@ -106,9 +106,8 @@ class AllegroKDL(object):
             return
 
         if finger_type == 'thumb':
-            # print(f"input_position {input_position}")
-            # time.sleep(.3)
-            input_position += [0,0,-0.03]
+
+            input_position += [0,0,-0.023]
 
             self.thumb_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 1, 0, 0, 0.5))
 
@@ -122,47 +121,21 @@ class AllegroKDL(object):
             return output_angles[0:4]
 
         elif finger_type == 'index':
-            # wyprostowany
-            # ip_x = [-0.1415960225855222, 0.006090478759842102, 0.009434112446888552]
-            # scisniety
-            # ip_x = [0.06613992374305373, 0.0017504104318999403, 0.04478159966084637]
-            # przeskakuje
-            # ip_x = [0.032225730640252054, 0.02968919827946307, 0.14660298104548292]
-            # ip_x = [-0.014293, -0.045098, 0.08]
-            # pos_error: [-0.00085594  0.00848489  0.00083459]
-            # q: [0.57       1.71       0.29181021 0.00000033]
-            
 
-            # input_position = [ip_x[2],-ip_x[1],-ip_x[0]]
-            
-            # input_position = [0.0, 0.0, 0.1527]
-
-            input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
+            input_position += [-0.034,0,0] #because it is the distance from IK goal to robot hand surface
 
             self.index_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
             
             rotation_angles = (-np.deg2rad(5), 0, 0)
             input_position = rotate_point(input_position, rotation_angles)
-            # print(f"input_position trans{input_position}")
-            # time.sleep(.3)
             input_position += [0, -0.045098, -0.014293]
 
-            # ik_position = [-input_position[2],-input_position[1],input_position[0]]
-            # ik_position = [input_position[0],input_position[1],input_position[2]]
             output_angles = self.finger_ik.compute_ik(finger_type, input_position, curr_finger_angles)
-            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
             return output_angles[0:4]
 
         elif finger_type == 'middle':
-            # print(f"input_position {input_position}")
-            # input_position[2] -= 0.005
-            # input_position[2] *= 3
-            # input_position[0] -= 0.03
-            # input_position[0] *= 1.5
-            # input_position[1] *= 1.8
-            # print(f"input_position trans{input_position}")
-            # time.sleep(.3)
-            input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
+
+            input_position += [-0.034,0,0] #because it is the distance from IK goal to robot hand surface
 
             self.middle_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
 
@@ -172,19 +145,11 @@ class AllegroKDL(object):
 
 
             output_angles = self.finger_ik.compute_ik(finger_type, input_position, curr_finger_angles)
-            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
             return output_angles[0:4]
 
         elif finger_type == 'ring':
-            # print(f"input_position {input_position}")
-            # input_position[2] -= 0.005
-            # input_position[2] *= 3
-            # input_position[0] -= 0.03
-            # input_position[0] *= 1.5
-            # input_position[1] *= 1.8
-            # print(f"input_position trans{input_position}")
-            # time.sleep(.3)
-            input_position += [-0.03,0,0] #because it is the distance from IK goal to robot hand surface
+
+            input_position += [-0.034,0,0] #because it is the distance from IK goal to robot hand surface
 
             self.ring_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
 
@@ -193,7 +158,6 @@ class AllegroKDL(object):
             input_position = rotate_point(input_position, rotation_angles)
 
             output_angles = self.finger_ik.compute_ik(finger_type, input_position, curr_finger_angles)
-            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
             return output_angles[0:4]
 
         

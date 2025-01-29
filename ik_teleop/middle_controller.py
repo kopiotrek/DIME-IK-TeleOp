@@ -14,8 +14,8 @@ import time
 
 
 # List of all ROS Topics
-XR_KEYPOINTS_TOPIC = '/XR/keypoints_transformed' 
-PAUSE_TELEOP_TOPIC = '/XR/Pause' 
+XR_KEYPOINTS_TOPIC = '/quest/keypoints_transformed' 
+PAUSE_TELEOP_TOPIC = '/quest/pause' 
 JOINT_STATE_TOPIC = '/allegroHand/joint_states' 
 COMM_JOINT_STATE_TOPIC = '/allegroHand/commanded_joint_states' 
 JOINT_COMM_TOPIC = '/allegroHand/joint_cmd'
@@ -47,9 +47,9 @@ class TeleOp(object):
         rospy.Subscriber(XR_KEYPOINTS_TOPIC, PoseArray, self._callback_knuckle_coordinates, queue_size=1)
         rospy.Subscriber(PAUSE_TELEOP_TOPIC, Bool, self._sub_pause_teleop, queue_size=1)
         
-        rospy.Subscriber(JOINT_COMM_DELTA_TOPIC, JointState, self._sub_callback_joint_cmd)
+        # rospy.Subscriber(JOINT_COMM_DELTA_TOPIC, JointState, self._sub_callback_joint_cmd)
 
-        self.joint_comm_publisher = rospy.Publisher(f'/allegroHand/{self.finger_type}/joint_cmd', JointState, queue_size=1)
+        # self.joint_comm_publisher = rospy.Publisher(f'/allegroHand/{self.finger_type}/joint_cmd', JointState, queue_size=1)
         self.joint_comm_publisher_delta = rospy.Publisher(f'/allegroHand/{self.finger_type}/joint_cmd_delta', JointState, queue_size=1)
         print(f"{self.finger_type} controller initialized!")
     
@@ -64,18 +64,18 @@ class TeleOp(object):
             print("▷")
         self.pause = data.data
 
-    def _sub_callback_joint_cmd(self, data):
-        cmd_joint_state = data.position
-        current_angles = self.current_joint_pose.position
+    # def _sub_callback_joint_cmd(self, data):
+    #     cmd_joint_state = data.position
+    #     current_angles = self.current_joint_pose.position
 
-        desired_angles = np.array(cmd_joint_state) + np.array(current_angles)
+    #     desired_angles = np.array(cmd_joint_state) + np.array(current_angles)
 
-        desired_js = copy(self.current_joint_pose)
-        desired_js.position = list(desired_angles)
-        desired_js.effort = list([])
-        desired_js.velocity = list([])
+    #     desired_js = copy(self.current_joint_pose)
+    #     desired_js.position = list(desired_angles)
+    #     desired_js.effort = list([])
+    #     desired_js.velocity = list([])
 
-        self.joint_comm_publisher.publish(desired_js)
+    #     self.joint_comm_publisher.publish(desired_js)
 
 
     def hand_pose(self, action=np.zeros(16)):

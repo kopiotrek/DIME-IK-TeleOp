@@ -121,6 +121,7 @@ class AllegroKDLControl(AllegroKinematicControl):
         moving_avg_arr, 
         curr_angles
     ):
+        # print(f"finger_joint_coords {finger_joint_coords}")
         tip_coord = finger_joint_coords[3]
 
         curr_finger_angles = self._get_curr_finger_angles(curr_angles, finger_type)  
