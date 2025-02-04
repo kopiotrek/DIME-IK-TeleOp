@@ -34,8 +34,6 @@ class AllegroController:
         rospy.Subscriber('/kth_franka_plant/in/allegro_cmd', JointState, self._sub_callback_delta_cmd)
 
     def _callback_knuckle_coordinates(self, data):
-
-
         # Calculate average and lowest frequency from the last 10 seconds
 
         # Rest of the code for publishing desired joint states
@@ -81,7 +79,10 @@ class AllegroController:
         current_angles = self.current_joint_state.position
 
         desired_angles = np.array(cmd_delta_joint_state) + np.array(current_angles)
-
+        desired_angles[0] = 0
+        desired_angles[4] = 0
+        desired_angles[8] = 0
+        
         desired_js = copy(self.current_joint_state)
         desired_js.position = list(desired_angles)
         desired_js.effort = []
