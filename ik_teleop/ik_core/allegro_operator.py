@@ -53,7 +53,7 @@ class AllegroHandOperator:
         finger_coords_array = []
         finger_orientation_array = []
         if len(msg.poses) < OCULUS_NUM_KEYPOINTS_TRANSFORMED:
-            print("ERROR: not enough joints received")
+            rospy.loginfo("ERROR: not enough joints received")
             return
         for i in range(OCULUS_NUM_KEYPOINTS_TRANSFORMED):
             # finger_poses_array.append(msg.poses[i])

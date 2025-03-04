@@ -52,12 +52,12 @@ class AllegroKDL(object):
     def finger_forward_kinematics(self, finger_type, input_angles):
         # Checking if the number of angles is equal to 4
         if len(input_angles) != self.hand_configs['joints_per_finger']:
-            print('Incorrect number of angles')
+            rospy.loginfo('Incorrect number of angles')
             return 
 
         # Checking if the input finger type is a valid one
         if finger_type not in self.hand_configs['fingers'].keys():
-            print('Finger type does not exist')
+            rospy.loginfo('Finger type does not exist')
             return
         
         # Clipping the input angles based on the finger type
@@ -102,21 +102,21 @@ class AllegroKDL(object):
     def finger_inverse_kinematics(self, finger_type, input_position, curr_finger_angles):
         # Checking if the input figner type is a valid one
         if finger_type not in self.hand_configs['fingers'].keys():
-            print('Finger type does not exist')
+            rospy.loginfo('Finger type does not exist')
             return
 
         if finger_type == 'thumb':
 
             input_position += [0,0,-0.023]
 
-            self.thumb_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 1, 0, 0, 0.5))
+            self.thumb_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 1, 0, 0, 1))
 
             rotation_angles = (np.pi + np.deg2rad(5), 0, 0)
             input_position += [0.0182, -0.016958, 0.073288]
             input_position = rotate_point(input_position, rotation_angles)
 
             output_angles = self.thumb_ik.compute_ik(input_position)
-            # print(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
+            # rospy.loginfo(f"Computed Joint Angles (IK) {finger_type}:", output_angles)
             output_angles = np.append(output_angles, 0)
             return output_angles[0:4]
 
@@ -124,7 +124,7 @@ class AllegroKDL(object):
 
             input_position += [-0.034,0,0] #because it is the distance from IK goal to robot hand surface
 
-            self.index_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
+            self.index_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 1, 0, 0, 1))
             
             rotation_angles = (-np.deg2rad(5), 0, 0)
             input_position = rotate_point(input_position, rotation_angles)
@@ -137,7 +137,7 @@ class AllegroKDL(object):
 
             input_position += [-0.034,0,0] #because it is the distance from IK goal to robot hand surface
 
-            self.middle_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
+            self.middle_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 1, 0, 0, 1))
 
 
             input_position += [0, 0, -0.0166]
@@ -151,7 +151,7 @@ class AllegroKDL(object):
 
             input_position += [-0.034,0,0] #because it is the distance from IK goal to robot hand surface
 
-            self.ring_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 0, 1, 0, 0.5))
+            self.ring_ik_marker_publisher.publish(self.create_marker_msg(input_position, 0.02, 1, 0, 0, 1))
 
             input_position += [0, 0.045098, -0.014293]
             rotation_angles = (-np.deg2rad(5), 0, 0)
@@ -185,7 +185,7 @@ class AllegroKDL(object):
 #     # Set desired position and orientation
 #     # output_frame = ik_control.finger_forward_kinematics('thumb',[ 0.49158065,  0.62981548, -2.99420419,  3.29378238])  # Example position
 #     thumb_joint_angles = ik_control.finger_inverse_kinematics('thumb', [ 0.02698166,  0.16099207, -0.07196472])
-#     print(f"thumb_joint_angles {thumb_joint_angles}")
+#     rospy.loginfo(f"thumb_joint_angles {thumb_joint_angles}")
 #     # ik_control.rotation = np.array([1, 0, 0, 0])     # Identity quaternion
 
 #     # Perform the IK update

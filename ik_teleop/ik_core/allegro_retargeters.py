@@ -7,7 +7,7 @@ from  ik_teleop.teleop_utils.vectorops import *
 
 class AllegroKinematicControl(ABC):
     def __init__(self, bounded_angles = True):
-        np.set_printoptions(suppress = True)
+        # np.set_printoptions(suppress = True)
 
         # Loading the Allegro Hand configs
         self.hand_configs = get_yaml_data(get_path_in_package("robot/allegro/configs/allegro_info.yaml"))
@@ -32,7 +32,7 @@ class AllegroKinematicControl(ABC):
 class AllegroJointControl(AllegroKinematicControl):
     def __init__(self, bounded_angles = True):
         super().__init__(bounded_angles)
-        np.set_printoptions(suppress = True)
+        # np.set_printoptions(suppress = True)
 
         self.linear_scaling_factors = self.bound_info['linear_scaling_factors']
         self.rotatory_thumb_scaling_factors = self.bound_info['rotatory_thumb_scaling_factors']

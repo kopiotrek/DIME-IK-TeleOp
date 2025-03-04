@@ -25,12 +25,12 @@ JOINT_COMM_DELTA_TOPIC = '/allegroHand/joint_cmd_delta'
 class TeleOp(object):
     def __init__(self):
         self.finger_type = 'ring'
-        print(f"{self.finger_type} controller starting...")
+        rospy.loginfo(f"{self.finger_type} controller starting...")
 
         try:
             rospy.init_node(f'hardware_teleop_{self.finger_type}')
         except rospy.ROSException as e:
-            print(f'Node initialization failed: {self.finger_type+str(e)}')
+            rospy.loginfo(f'Node initialization failed: {self.finger_type+str(e)}')
             pass
         self.desired_joint_angles = np.array([0.0, 0.28113237, 0.16851817, 0.0, 0.0, 0.17603329, 
             0.21581194, 0.0, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
@@ -51,7 +51,7 @@ class TeleOp(object):
 
         # self.joint_comm_publisher = rospy.Publisher(f'/allegroHand/{self.finger_type}/joint_cmd', JointState, queue_size=1)
         self.joint_comm_publisher_delta = rospy.Publisher(f'/allegroHand/{self.finger_type}/joint_cmd_delta', JointState, queue_size=1)
-        print(f"{self.finger_type} controller initialized!")
+        rospy.loginfo(f"{self.finger_type} controller initialized!")
     
 
     def _sub_callback_joint_state(self, data):
@@ -59,9 +59,9 @@ class TeleOp(object):
 
     def _sub_pause_teleop(self, data):
         if data.data:
-            print("||")
+            rospy.loginfo("||")
         else:
-            print("▷")
+            rospy.loginfo("▷")
         self.pause = data.data
 
     # def _sub_callback_joint_cmd(self, data):
@@ -80,7 +80,7 @@ class TeleOp(object):
 
     def hand_pose(self, action=np.zeros(16)):
         if self.current_joint_pose == None:
-            print('No joint data received!')
+            rospy.loginfo('No joint data received!')
             return
     
         current_angles = np.array(self.current_joint_pose.position)  # Convert JointState to numpy array

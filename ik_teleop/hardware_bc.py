@@ -35,7 +35,7 @@ class TeleOp(object):
             try:
                 rospy.init_node('hardware_teleop')
             except rospy.ROSException as e:
-                print(f'Node initialization failed: {str(e)}')
+                rospy.loginfo(f'Node initialization failed: {str(e)}')
                 pass
         self.desired_joint_angles = np.array([0.0, 0.28113237, 0.16851817, 0.0, 0.0, 0.17603329, 
             0.21581194, 0.0, 0.2928223, 0.16747166, 1.45242466, 1.45812127, 0.69531447, 1.1, 1.1, 1.1])
@@ -65,9 +65,9 @@ class TeleOp(object):
 
     def _sub_pause_teleop(self, data):
         if data.data:
-            print("||")
+            rospy.loginfo("||")
         else:
-            print("▷")
+            rospy.loginfo("▷")
         self.pause = data.data
 
 
@@ -82,7 +82,7 @@ class TeleOp(object):
 
     def hand_pose(self, desired_action = np.zeros(16)):
         if self.current_joint_pose == DEFAULT_VAL:
-            print('No joint data received!')
+            rospy.loginfo('No joint data received!')
             return
         action = self._clip(desired_action, MAX_ANGLE)
 

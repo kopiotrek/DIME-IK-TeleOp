@@ -116,7 +116,7 @@ class AllegroController:
             rospy.loginfo(f"Average frequency (last 10s): {average_frequency:.2f} Hz")
             rospy.loginfo(f"Lowest frequency (last 10s): {lowest_frequency:.2f} Hz")
 
-
+    # Because kth_franka_plant sends delta commands we need current angles to create new joint_cmd message
     def _sub_callback_joint_state(self, data):
         self.current_joint_state = data
 
@@ -145,11 +145,11 @@ if __name__ == '__main__':
 
     # Set up signal handler for Ctrl+C
 
-    print('Started Allegro Hand controller')
+    rospy.loginfo('Started Allegro Hand controller')
     try:
         # allegro_controller.start_finger_controllers()
         rospy.spin()
     except Exception as e:
-        print(f"Exception occurred: {e}")
+        rospy.loginfo(f"Exception occurred: {e}")
     finally:
-        print("Allegro Controller terminated.")
+        rospy.loginfo("Allegro Controller terminated.")
